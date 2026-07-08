@@ -1,0 +1,15 @@
+# Node
+node_modules/
+dist/
+*.log
+
+# Rust (reference repos build artifacts)
+target/
+
+# Env / secrets
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+.ipynb_checkpoints/

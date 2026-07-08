@@ -1,0 +1,39 @@
+# Wayfinder — a guided, working tour of the Finternet stack
+
+Wayfinder is a personal learning project structured as a professional one. The goal is to genuinely
+understand the **Finternet** — term by term, layer by layer — by building one real digital-wallet-style
+application that *uses* Finternet Labs' actual specs and (where they run) their real reference code,
+rather than reinventing the infrastructure. The working app is the proof and the vehicle; the
+understanding is the point.
+
+See **[`PROJECT_PLAN.md`](PROJECT_PLAN.md)** for the full plan and phases, and
+**[`CLAUDE.md`](CLAUDE.md)** for how this project is built (teach the concept first, then the code).
+
+## Start here
+
+- **[`docs/00_glossary.md`](docs/00_glossary.md)** — plain-English definitions of every core Finternet
+  term, each tagged to its paper section and the spec file that embodies it. The single most important
+  document in the repo; updated every phase.
+- **[`docs/00_architecture_map.md`](docs/00_architecture_map.md)** — the paper's §5.3 architecture diagram
+  mapped onto the real spec files and reference repos.
+- **[`docs/paper/`](docs/paper/)** — the source paper: *Finternet: technology vision and architecture*
+  (Nilekani, Varma, Shetty, 2024; CC BY-SA 4.0).
+
+## Layout
+
+| Path | What it is | Whose it is |
+|---|---|---|
+| `docs/` | Glossary, phase write-ups, the paper | Ours |
+| `specs-vendor/` | Pinned copy of `finternet-io/specs` (see its `VENDOR.md`) | **Finternet Labs' — vendored, not ours** |
+| `reference/finternet-api/` | Cloned Unified Ledger reference (Rust) — read-only | **Finternet Labs' community code, not ours** |
+| `reference/finternet-sandbox/` | Cloned ledger-infra reference (Rust) — read-only | **Finternet Labs' community code, not ours** |
+| `app/` | The Wayfinder wallet app (React) | Ours — added in Phase 3 |
+| `standin-service/` | Minimal stand-ins, only where their code can't be used | Ours — added when needed, always marked `// STAND-IN:` |
+
+Anything under `reference/` and `specs-vendor/` is Finternet Labs' work, included here so Wayfinder builds
+against the real thing. Where we ever have to build a stand-in for a piece their code doesn't cover, it is
+logged and clearly marked as such.
+
+## Status
+
+Phase 0 (Glossary & Orientation) — in progress. No application code yet.

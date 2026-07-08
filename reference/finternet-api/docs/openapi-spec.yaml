@@ -1,0 +1,519 @@
+openapi: "3.0.3"
+info:
+  title: "Backend Routes - Finternet"
+  description: |+
+    A rough specification for the backend routes expected by the ledger backend for finternet. These APIs will be consumed by the frontend to interact with the backend.
+  version: "0.0.1"
+tags:
+  - name: users
+    description: "Routes for linking with the token manager"
+  - name: token manager admin
+    description: "Routes for the token manager admin"
+  - name: asset management
+    description: "Routes for managing assets"
+paths:
+  # ------------------------------------------------------------------------------
+  # Users
+  /v1/users:
+    post:
+      tags:
+        - users
+      summary: Create a user
+      description: This route is used to create a user on the ledger
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/User"
+      responses:
+        "200":
+          description: "User created successfully"
+  /v1/users/{user_id}:
+    get:
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: "The user id"
+          schema:
+            type: string
+      tags:
+        - users
+      summary: Get a user
+      description: This route is used to get a user from the ledger
+      responses:
+        "200":
+          description: "User found successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    put:
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: "The user id"
+          schema:
+            type: string
+      tags:
+        - users
+      summary: Update a user
+      description: This route is used to update a user on the ledger
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/User"
+      responses:
+        "200":
+          description: "User updated successfully"
+    delete:
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: "The user id"
+          schema:
+            type: string
+      tags:
+        - users
+      summary: Delete a user
+      description: This route is used to delete a user from the ledger
+      responses:
+        "200":
+          description: "User deleted successfully"
+    # ------------------------------------------------------------------------------
+  # Token Manager
+  /v1/token_managers:
+    post:
+      tags:
+        - token manager admin
+      summary: Create a token manager
+      description: This route is used to create a token manager on the ledger
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenManager"
+      responses:
+        "200":
+          description: "Token manager created successfully"
+    get:
+      tags:
+        - token manager admin
+      summary: Get all token managers as a list
+      description: This route is used to get all token managers from the ledger
+      responses:
+        "200":
+          description: "Token managers found successfully"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TokenManager"
+  /v1/token_managers/{token_manager_id}:
+    get:
+      parameters:
+        - name: token_manager_id
+          in: path
+          required: true
+          description: "The token manager id"
+          schema:
+            type: string
+      tags:
+        - token manager admin
+      summary: Get a token manager
+      description: This route is used to get a token manager from the ledger
+      responses:
+        "200":
+          description: "Token manager found successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenManager"
+    put:
+      parameters:
+        - name: token_manager_id
+          in: path
+          required: true
+          description: "The token manager id"
+          schema:
+            type: string
+      tags:
+        - token manager admin
+      summary: Update a token manager
+      description: This route is used to update a token manager on the ledger
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenManager"
+      responses:
+        "200":
+          description: "Token manager updated successfully"
+    delete:
+      parameters:
+        - name: token_manager_id
+          in: path
+          required: true
+          description: "The token manager id"
+          schema:
+            type: string
+      tags:
+        - token manager admin
+      summary: Delete a token manager
+      description: This route is used to delete a token manager from the ledger
+      responses:
+        "200":
+          description: "Token manager deleted successfully"
+    # ------------------------------------------------------------------------------
+  # Asset Management
+  /v1/users/{user_id}/assets:
+    post:
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: "The user id"
+          schema:
+            type: string
+        - name: account_id
+          in: path
+          required: true
+          description: "The account id"
+          schema:
+            type: string
+      tags:
+        - asset management
+      summary: Create a asset
+      description: This route is used to tokenize an asset on the ledger
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Asset"
+      responses:
+        "200":
+          description: "Asset created successfully"
+  /v1/users/{user_id}/assets/{asset_id}:
+    get:
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: "The user id"
+          schema:
+            type: string
+        - name: account_id
+          in: path
+          required: true
+          description: "The account id"
+          schema:
+            type: string
+        - name: asset_id
+          in: path
+          required: true
+          description: "The asset id"
+          schema:
+            type: string
+      tags:
+        - asset management
+      summary: Get an asset
+      description: This route is used to get asset info from the ledger
+      responses:
+        "200":
+          description: "Asset found successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    put:
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: "The user id"
+          schema:
+            type: string
+        - name: account_id
+          in: path
+          required: true
+          description: "The account id"
+          schema:
+            type: string
+        - name: asset_id
+          in: path
+          required: true
+          description: "The asset id"
+          schema:
+            type: string
+      tags:
+        - asset management
+      summary: Update an asset
+      description: This route is used to update asset info on the ledger
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Asset"
+      responses:
+        "200":
+          description: "Asset updated successfully"
+    delete:
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: "The user id"
+          schema:
+            type: string
+        - name: account_id
+          in: path
+          required: true
+          description: "The account id"
+          schema:
+            type: string
+        - name: asset_id
+          in: path
+          required: true
+          description: "The asset id"
+          schema:
+            type: string
+      tags:
+        - asset management
+      summary: Delete an asset
+      description: This route is used to detokenize an asset from the ledger
+      responses:
+        "200":
+          description: "Asset deleted successfully"
+  /v1/users/{user_id}/assets/{asset_id}/asset:transfer:
+    post:
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: "The user id"
+          schema:
+            type: string
+        - name: account_id
+          in: path
+          required: true
+          description: "The account id"
+          schema:
+            type: string
+        - name: asset_id
+          in: path
+          required: true
+          description: "The asset id"
+          schema:
+            type: string
+      tags:
+        - asset management
+      summary: transfer an asset
+      description: This route is used to transfer an asset from one user to another
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                asset:
+                  $ref: "#/components/schemas/Asset"
+      responses:
+        "200":
+          description: "Asset transferred successfully"
+  /v1/users/{user_id}/assets/{asset_id}/asset:nominate:
+    post:
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: "The user id"
+          schema:
+            type: string
+        - name: account_id
+          in: path
+          required: true
+          description: "The account id"
+          schema:
+            type: string
+        - name: asset_id
+          in: path
+          required: true
+          description: "The asset id"
+          schema:
+            type: string
+      tags:
+        - asset management
+      summary: nominate an asset
+      description: This route is used to nominate an asset to a user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                asset:
+                  $ref: "#/components/schemas/Asset"
+      responses:
+        "200":
+          description: "Asset nominated successfully"
+  /v1/users/{user_id}/assets/{asset_id}/asset:lease:
+    post:
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: "The user id"
+          schema:
+            type: string
+        - name: account_id
+          in: path
+          required: true
+          description: "The account id"
+          schema:
+            type: string
+        - name: asset_id
+          in: path
+          required: true
+          description: "The asset id"
+          schema:
+            type: string
+      tags:
+        - asset management
+      summary: lease an asset
+      description: This route is used to lease an asset to a user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                asset:
+                  $ref: "#/components/schemas/Asset"
+      responses:
+        "200":
+          description: "Asset leased successfully"
+  /v1/users/{user_id}/assets/{asset_id}/asset:pledge:
+    post:
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: "The user id"
+          schema:
+            type: string
+        - name: account_id
+          in: path
+          required: true
+          description: "The account id"
+          schema:
+            type: string
+        - name: asset_id
+          in: path
+          required: true
+          description: "The asset id"
+          schema:
+            type: string
+      tags:
+        - asset management
+      summary: pledge an asset
+      description: This route is used to pledge an asset to a user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                asset:
+                  $ref: "#/components/schemas/Asset"
+      responses:
+        "200":
+          description: "Asset leased successfully"
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: "string"
+          description: "A Unique Account Address to be assigned to the user"
+        pub_key:
+          type: byte
+          description: "The public key the is securely generated on the user side"
+        name:
+          type: "string"
+          description: "The name of the user"
+        email:
+          type: "string"
+          description: "The email of the user"
+    TokenManager:
+      type: object
+      properties:
+        id:
+          type: "string"
+          description: "A Unique Account Address to be assigned to the token manager"
+        name:
+          type: "string"
+          description: "The name of the token manager"
+        email:
+          type: "string"
+          description: "The email of the token manager"
+    Contact:
+      type: object
+    Account:
+      type: object
+    Workflow:
+      type: object
+    Asset:
+      type: object
+      properties:
+        chain_id:
+          type: "string"
+          format: "byte"
+        class_id:
+          type: "string"
+          format: "byte"
+        asset_instance_id:
+          type: "string"
+          format: "byte"
+        asset_state:
+          type: "string"
+          enum:
+            - locked
+            - unlocked
+        unit:
+          type: "integer"
+        token_manager:
+          type: "string"
+          format: "byte"
+        created_at:
+          type: "string"
+          format: "date-time"
+        modified_at:
+          type: "string"
+          format: "date-time"
+        holders:
+          type: "array"
+          items:
+            type: "string"
+            format: "byte"
+        asset_type:
+          type: "string"
+          enum:
+            - fungible
+            - non-fungible
+    SupportedAsset:
+      type: object
+      properties:
+        id:
+          type: "string"
+        asset_type:
+          $ref: "#/components/schemas/AssetType"
+    AssetType:
+      type: string
+      enum:
+        - property
+        - money
