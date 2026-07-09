@@ -95,6 +95,44 @@ export interface MintAccepted {
   message: string;
 }
 
+// ---- movement: transactions & proofs (Phase 6) ----
+
+export interface TransactAccepted {
+  txId: string;
+  status: string;
+  message: string;
+}
+
+export interface ProofDetails {
+  txId: string;
+  leafHash: string;
+  merkleRoot: string;
+  proofPath: { hash: string; direction: 'left' | 'right' }[];
+  leafIndex: number;
+  proofStatus: string;
+}
+
+export interface TokenTransaction {
+  tokenTxId: string;
+  txId: string;
+  tokenId: string;
+  operation: string;
+  fromAccount?: string;
+  toAccount?: string;
+  stateBefore?: { stateCommitment: string };
+  stateAfter: { stateCommitment: string };
+  timestamp: string;
+}
+
+export interface TransactionLog {
+  txId: string;
+  initiator: string;
+  status: string;
+  proofProfile?: string;
+  proofId?: string;
+  ledgerAnchors?: { chain: string; network: string; txHash: string }[];
+}
+
 // The UNITS 5-section token — we read a handful of fields for display; the server is authoritative.
 export interface TokenInstance {
   id: string;

@@ -15,6 +15,9 @@ import type {
   TokenClass,
   MintAccepted,
   TokenInstance,
+  TransactAccepted,
+  ProofDetails,
+  TransactionLog,
 } from './types.js';
 
 const BASE = '/api';
@@ -105,4 +108,14 @@ export const api = {
 
   searchTokens: (token: string) =>
     post<{ tokens: TokenInstance[]; pagination: { total: number } }>('/v1/token/search', 'token.search', {}, token),
+
+  // ---- movement (Phase 6) ----
+  transfer: (token: string, tokenId: string, to: string) =>
+    post<TransactAccepted>('/v1/token/transact', 'token.transact', { operation: 'transfer', tokenId, to }, token),
+
+  getTransaction: (token: string, txId: string) =>
+    post<TransactionLog>('/v1/transaction/get', 'transaction.get', { txId }, token),
+
+  getProof: (token: string, txId: string) =>
+    post<ProofDetails>('/v1/transaction/proof', 'transaction.proof', { txId }, token),
 };

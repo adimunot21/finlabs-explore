@@ -228,7 +228,7 @@ lifecycle actions recorded per token. In the spec these are the `OperationType` 
 
 ---
 
-## G. The ledger (Phase 6 territory)
+## G. The ledger (Phase 6 — done, see [`06_movement.md`](06_movement.md))
 
 **Unified ledger.** A programmable ledger that unifies accounts, tokens, smart contracts, and
 interoperability in one place — designed to be universal and open (vs. today's *private* ledgers inside one
@@ -352,5 +352,8 @@ holder's DID, verification runs four independent checks (schema/signature/revoca
 makes it fail while the signature stays valid ([`04_credentials.md`](04_credentials.md)).
 Phase 5 done — a **token** (UNITS 5-section model) is minted from a KYC-gated **token class**, with the
 **compliance hook** enforced at mint time: minting is refused unless the owner holds a valid credential, so a
-non-compliant asset can't be created ([`05_tokens.md`](05_tokens.md)). Next update: Phase 6 (movement,
-transactions & proof chains).*
+non-compliant asset can't be created ([`05_tokens.md`](05_tokens.md)).
+Phase 6 done — a token is **transferred** on a stand-in unified ledger, recorded as a tamper-evident
+**state-commitment chain**, with a real **Merkle proof** of inclusion that the browser re-folds leaf→root
+(and tampering breaks). This is the artifact **UILP** carries between ledgers ([`06_movement.md`](06_movement.md)).
+Next update: Phase 7 (put it together) + `09_how_this_maps_to_finternet.md`.*

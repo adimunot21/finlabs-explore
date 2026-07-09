@@ -41,3 +41,20 @@ export function verifyHashHex(publicKey: Uint8Array, hashHex: string, signatureH
 export function multibaseFromDid(did: string): string {
   return did.startsWith('did:key:') ? did.slice('did:key:'.length) : did;
 }
+
+export interface ProofPathNode {
+  hash: string;
+  direction: 'left' | 'right';
+}
+
+/**
+ * Re-fold a Merkle inclusion proof: combine the leaf hash with each sibling on the path up to
+ * the root. Uses the exact same SHA-256(left+right) the ledger used, so a valid proof folds back
+ * to the published merkleRoot — and changing one bit of the leaf makes it diverge. This is the
+ * browser independently verifying the ledger's proof, needing only hashes (no trust in the server).
+ */
+export function foldMerkleProof(leafHash: string, path: ProofPathNode[]): string {
+  let h = leafHash;
+  for (const node of path) h = node.direction === 'left' ? sha256Hex(node.hash + h) : sha256Hex(h + node.hash);
+  return h;
+}

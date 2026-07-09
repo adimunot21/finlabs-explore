@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ApiError } from './lib/client.js';
-import { sha256Hex, verifyHashHex, publicKeyFromMultibase } from './lib/crypto.js';
+import { sha256Hex, verifyHashHex, publicKeyFromMultibase, foldMerkleProof } from './lib/crypto.js';
 import type {
   AccountProfile,
   AccountKeyInfo,
@@ -9,6 +9,8 @@ import type {
   VerificationResult,
   TokenClass,
   TokenInstance,
+  ProofDetails,
+  TransactionLog,
 } from './lib/types.js';
 
 interface Session {
@@ -25,11 +27,12 @@ export default function App() {
       <header>
         <h1>Wayfinder</h1>
         <p className="sub">
-          Phase 3 · <strong>Identity &amp; Keys</strong>, Phase 4 · <strong>Trust &amp; Credentials</strong>,
-          Phase 5 · <strong>Tokens</strong> — create a real Finternet account, sign/verify a message, get a
-          verifiable credential (and watch it fail once revoked), then mint a token whose creation is{' '}
-          <em>gated on that credential</em>. Real Ed25519 / <code>did:key</code> crypto; credential and token
-          data validated against the vendored <code>credential.schema.json</code> / <code>token.schema.json</code>.
+          Phase 3 · <strong>Identity</strong>, Phase 4 · <strong>Credentials</strong>, Phase 5 ·{' '}
+          <strong>Tokens</strong>, Phase 6 · <strong>Movement</strong> — create a Finternet account,
+          sign/verify a message, get a verifiable credential (watch it fail once revoked), mint a token{' '}
+          <em>gated on that credential</em>, then transfer it and verify the ledger's Merkle proof in your
+          browser. Real Ed25519 / <code>did:key</code> crypto and real SHA-256 proof chains; data validated
+          against the vendored <code>*.schema.json</code>.
         </p>
       </header>
 
@@ -41,6 +44,7 @@ export default function App() {
           <SignAndVerify session={session} />
           <Credentials session={session} />
           <Tokens session={session} />
+          <Transfer session={session} />
           <button className="ghost" onClick={() => setSession(null)}>
             ← Start over with a new account
           </button>
@@ -50,8 +54,8 @@ export default function App() {
       <footer>
         <span>
           A DID is a public key you control · a signature proves who authorized what · a credential is a
-          signed claim about you · a token is an asset that carries its own rules — and won't be minted
-          unless those rules are satisfied.
+          signed claim about you · a token is an asset that carries its own rules · a proof lets anyone verify
+          a transfer happened — with only hashes, trusting no one.
         </span>
       </footer>
     </div>
@@ -423,6 +427,140 @@ function Tokens({ session }: { session: Session }) {
             <span className="mono">{minted.state.status}</span>
             <span className="tag">supply {minted.state.supply?.totalSupply ?? '—'}</span>
           </Row>
+        </>
+      )}
+    </section>
+  );
+}
+
+function Transfer({ session }: { session: Session }) {
+  const { token } = session;
+  const [held, setHeld] = useState<TokenInstance | null>(null);
+  const [recipient, setRecipient] = useState('bob');
+  const [newOwner, setNewOwner] = useState<string | null>(null);
+  const [proof, setProof] = useState<ProofDetails | null>(null);
+  const [log, setLog] = useState<TransactionLog | null>(null);
+  const [tampered, setTampered] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Find a token this account owns to move. (After a transfer it's owned by someone else.)
+  async function refreshHeld() {
+    try {
+      const { tokens } = await api.searchTokens(token);
+      setHeld(tokens[0] ?? null);
+    } catch {
+      setHeld(null);
+    }
+  }
+  useEffect(() => {
+    refreshHeld();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Browser-side proof check: re-fold leaf→root. Flip one nibble of the leaf to see it break.
+  const verdict = useMemo(() => {
+    if (!proof) return null;
+    const leaf = tampered ? (proof.leafHash.startsWith('0') ? 'f' : '0') + proof.leafHash.slice(1) : proof.leafHash;
+    return foldMerkleProof(leaf, proof.proofPath) === proof.merkleRoot;
+  }, [proof, tampered]);
+
+  async function transfer() {
+    if (!held) {
+      setError('Mint a token in step 6 first — there is nothing to transfer.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setTampered(false);
+    try {
+      // Make sure the recipient exists as an account (throwaway, for the demo).
+      const { available } = await api.checkAvailability(recipient);
+      if (available) await api.createAccount({ address: recipient, name: recipient, entityType: 'PERSONAL' });
+
+      const accepted = await api.transfer(token, held.id, recipient);
+      // Fetch the ledger's proof + transaction log, and the token's new owner.
+      const [pf, tl, moved] = await Promise.all([
+        api.getProof(token, accepted.txId),
+        api.getTransaction(token, accepted.txId),
+        api.getToken(token, held.id),
+      ]);
+      setProof(pf);
+      setLog(tl);
+      setNewOwner(moved.identities.find((i) => i.type === 'owner')?.id ?? null);
+      await refreshHeld(); // token has left our wallet now
+    } catch (e) {
+      setError(e instanceof ApiError ? `${e.code}: ${e.message}` : (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>7 · Transfer it — with a verifiable proof</h2>
+      <p className="hint">
+        Moving the token writes a <em>transaction</em> to the unified ledger and chains a new{' '}
+        <em>state commitment</em> (a SHA-256 hash that folds in the previous one — tamper-evident history).
+        The ledger returns a <em>Merkle proof</em> of inclusion, which the browser re-checks below using only
+        hashes — no trust in the server. This is what UILP carries between ledgers.
+      </p>
+
+      {!held && !proof && <p className="hint">No token in this wallet yet — mint one in step 6.</p>}
+
+      {held && !proof && (
+        <>
+          <Row label="Moving">
+            <span className="mono break">{held.id}</span>
+            <span className="tag">{held.metadata.tokenClass}</span>
+          </Row>
+          <label className="block">
+            Recipient address
+            <input value={recipient} onChange={(e) => setRecipient(e.target.value.toLowerCase())} placeholder="bob" />
+          </label>
+          <button onClick={transfer} disabled={busy || !recipient}>
+            {busy ? 'Transferring…' : 'Transfer token'}
+          </button>
+        </>
+      )}
+      {error && <p className="error">{error}</p>}
+
+      {proof && (
+        <>
+          <div className="verdict ok">✓ Transfer recorded on the ledger.</div>
+          <Row label="New owner">
+            <span className="mono break">{newOwner}</span>
+          </Row>
+          {log && (
+            <Row label="Transaction">
+              <span className="mono break">{log.txId}</span>
+              <span className="tag">{log.proofProfile}</span>
+              <span className="tag">{log.status}</span>
+            </Row>
+          )}
+
+          <h2 style={{ marginTop: '1.5rem' }}>8 · Verify the proof (in your browser)</h2>
+          <p className="hint">
+            The proof is a leaf hash plus {proof.proofPath.length} sibling hash
+            {proof.proofPath.length === 1 ? '' : 'es'}. We re-fold leaf → root and compare to the ledger's
+            published <code>merkleRoot</code>. Toggle “tamper” to change one nibble of the leaf and watch it
+            stop matching.
+          </p>
+          <Row label="Leaf hash">
+            <span className="mono break">{proof.leafHash}</span>
+          </Row>
+          <Row label="Merkle root">
+            <span className="mono break">{proof.merkleRoot}</span>
+          </Row>
+          <label style={{ flexDirection: 'row', gap: '0.5rem', alignItems: 'center', margin: '0.5rem 0' }}>
+            <input type="checkbox" checked={tampered} onChange={(e) => setTampered(e.target.checked)} style={{ width: 'auto' }} />
+            Tamper with the leaf hash
+          </label>
+          <div className={`verdict ${verdict ? 'ok' : 'bad'}`}>
+            {verdict
+              ? '✓ Proof valid — this transaction is provably included under the ledger root.'
+              : '✗ Invalid — the folded root does not match; this leaf is not in the tree.'}
+          </div>
         </>
       )}
     </section>

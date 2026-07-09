@@ -51,8 +51,11 @@ logged and clearly marked as such.
 - **Phase 5** (Assets: tokens) — done. A UNITS token is minted from a KYC-gated token class, with the
   compliance hook enforced at mint time — minting is refused unless the owner holds a valid credential, so a
   non-compliant asset can't exist. See [`docs/05_tokens.md`](docs/05_tokens.md).
+- **Phase 6** (Movement) — done. Transfer a token on a stand-in unified ledger, recorded as a tamper-evident
+  state-commitment chain with a real Merkle proof of inclusion the browser re-verifies (leaf→root). See
+  [`docs/06_movement.md`](docs/06_movement.md).
 
-## Running it (Phases 3–5)
+## Running it (Phases 3–6)
 
 ```bash
 cd standin-service && npm install && npm start   # identity backend on :8081
