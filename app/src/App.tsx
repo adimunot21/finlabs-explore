@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ApiError } from './lib/client.js';
 import { sha256Hex, verifyHashHex, publicKeyFromMultibase, foldMerkleProof } from './lib/crypto.js';
 import type {
@@ -19,33 +19,45 @@ interface Session {
   key: AccountKeyInfo;
 }
 
+// The five milestones of the lifecycle, tracked so the progress rail can light up as you go.
+type Stage = 'credential' | 'token' | 'transfer' | 'proof';
+type Journey = Record<Stage, boolean>;
+const EMPTY_JOURNEY: Journey = { credential: false, token: false, transfer: false, proof: false };
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
+  const [journey, setJourney] = useState<Journey>(EMPTY_JOURNEY);
+
+  // Stable, no-op-on-unchanged updater so child effects can report milestones without looping.
+  const mark = useCallback((stage: Stage, value: boolean) => {
+    setJourney((j) => (j[stage] === value ? j : { ...j, [stage]: value }));
+  }, []);
+
+  function reset() {
+    setSession(null);
+    setJourney(EMPTY_JOURNEY);
+  }
 
   return (
     <div className="page">
-      <header>
-        <h1>Wayfinder</h1>
-        <p className="sub">
-          Phase 3 · <strong>Identity</strong>, Phase 4 · <strong>Credentials</strong>, Phase 5 ·{' '}
-          <strong>Tokens</strong>, Phase 6 · <strong>Movement</strong> — create a Finternet account,
-          sign/verify a message, get a verifiable credential (watch it fail once revoked), mint a token{' '}
-          <em>gated on that credential</em>, then transfer it and verify the ledger's Merkle proof in your
-          browser. Real Ed25519 / <code>did:key</code> crypto and real SHA-256 proof chains; data validated
-          against the vendored <code>*.schema.json</code>.
-        </p>
-      </header>
+      <Hero />
+      {session && <ProgressRail session={session} journey={journey} />}
 
       {!session ? (
-        <CreateAccount onReady={setSession} />
+        <>
+          <TheStory />
+          <CreateAccount onReady={setSession} />
+        </>
       ) : (
         <>
+          <SessionBar session={session} onReset={reset} />
           <Identity session={session} />
           <SignAndVerify session={session} />
-          <Credentials session={session} />
-          <Tokens session={session} />
-          <Transfer session={session} />
-          <button className="ghost" onClick={() => setSession(null)}>
+          <Credentials session={session} onStage={mark} />
+          <Tokens session={session} onStage={mark} />
+          <Transfer session={session} onStage={mark} />
+          {journey.transfer && <Done journey={journey} />}
+          <button className="ghost" onClick={reset}>
             ← Start over with a new account
           </button>
         </>
@@ -59,6 +71,105 @@ export default function App() {
         </span>
       </footer>
     </div>
+  );
+}
+
+function Hero() {
+  return (
+    <header>
+      <h1>Wayfinder</h1>
+      <p className="sub">
+        A hands-on tour of <strong>Finternet</strong> — a proposed “network of networks” for money and assets.
+        In about two minutes you'll walk the full lifecycle: become your own identity, earn a credential, mint
+        an asset that <em>refuses to exist unless you're compliant</em>, move it, and verify the whole thing
+        yourself with nothing but math. Real Ed25519 / <code>did:key</code> keys and real SHA-256 proof chains;
+        every message is validated against Finternet Labs' own published schemas.
+      </p>
+    </header>
+  );
+}
+
+// Zero-context framing shown on the landing screen: what problem Finternet is attacking.
+function TheStory() {
+  return (
+    <section className="card story">
+      <h2>Why any of this?</h2>
+      <p className="hint">
+        Today your money is a row in your bank's private database. It can't move to another institution's
+        ledger without intermediaries reconciling it, because the asset has no existence of its own. Finternet's
+        bet: make each asset a <strong>self-describing object</strong> that carries its own identity, rules, and
+        history — so any ledger can hold it, compliance is enforced at the moment of creation, and anyone can
+        verify what happened without trusting a middleman.
+      </p>
+      <p className="hint">
+        You'll build that stack from the bottom up, one real piece at a time. Start by creating your identity.
+      </p>
+    </section>
+  );
+}
+
+const STAGES: { key: 'account' | Stage; label: string; blurb: string }[] = [
+  { key: 'account', label: 'Identity', blurb: 'a key pair you control' },
+  { key: 'credential', label: 'Credential', blurb: 'a signed claim about you' },
+  { key: 'token', label: 'Token', blurb: 'a compliant asset' },
+  { key: 'transfer', label: 'Transfer', blurb: 'move it on the ledger' },
+  { key: 'proof', label: 'Proof', blurb: 'verify it yourself' },
+];
+
+function ProgressRail({ session, journey }: { session: Session; journey: Journey }) {
+  const done = (k: 'account' | Stage) => (k === 'account' ? Boolean(session) : journey[k]);
+  return (
+    <nav className="rail" aria-label="Lifecycle progress">
+      {STAGES.map((s, i) => (
+        <div key={s.key} className={`rail-step ${done(s.key) ? 'done' : ''}`}>
+          <span className="rail-dot">{done(s.key) ? '✓' : i + 1}</span>
+          <span className="rail-text">
+            <strong>{s.label}</strong>
+            <em>{s.blurb}</em>
+          </span>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+function SessionBar({ session, onReset }: { session: Session; onReset: () => void }) {
+  const { profile } = session;
+  const short = `${profile.did.slice(0, 22)}…${profile.did.slice(-6)}`;
+  return (
+    <div className="sessionbar">
+      <span>
+        Signed in as <strong>{profile.address}</strong> · <span className="mono">{short}</span>
+      </span>
+      <button className="ghost small" onClick={onReset}>
+        Start over
+      </button>
+    </div>
+  );
+}
+
+function Done({ journey }: { journey: Journey }) {
+  return (
+    <section className="card done">
+      <h2>That's the whole Finternet lifecycle 🎉</h2>
+      <p className="hint">In a couple of minutes, with real cryptography at every step, you just:</p>
+      <ul className="done-list">
+        <li>became your own <strong>identity</strong> — a <code>did:key</code> that is literally your public key;</li>
+        <li>received a <strong>verifiable credential</strong> anyone can check, and an issuer can revoke;</li>
+        <li>minted a <strong>token</strong> that the ledger refused to create until you were compliant;</li>
+        <li>
+          <strong>transferred</strong> it, chaining a tamper-evident state commitment;
+        </li>
+        <li>
+          and {journey.proof ? 'verified' : 'can verify'} the <strong>Merkle proof</strong> of that transfer in
+          your own browser — trusting no one.
+        </li>
+      </ul>
+      <p className="hint">
+        That's Finternet's claim in miniature: assets that carry their own rules and history, so value can move
+        across ledgers with compliance built in and trust replaced by proof.
+      </p>
+    </section>
   );
 }
 
@@ -215,7 +326,7 @@ function SignAndVerify({ session }: { session: Session }) {
   );
 }
 
-function Credentials({ session }: { session: Session }) {
+function Credentials({ session, onStage }: { session: Session; onStage: (s: Stage, v: boolean) => void }) {
   const { profile } = session;
   const [issuer, setIssuer] = useState<{ did: string; name: string } | null>(null);
   const [credential, setCredential] = useState<CredentialToken | null>(null);
@@ -227,6 +338,11 @@ function Credentials({ session }: { session: Session }) {
   useEffect(() => {
     api.getIssuer().then(setIssuer).catch(() => setIssuer(null));
   }, []);
+
+  // Report to the progress rail: the credential milestone is "held AND currently valid".
+  useEffect(() => {
+    onStage('credential', result?.valid ?? false);
+  }, [result, onStage]);
 
   function run<T>(kind: 'issue' | 'verify' | 'revoke', fn: () => Promise<T>): Promise<T | undefined> {
     setBusy(kind);
@@ -334,7 +450,7 @@ function Credentials({ session }: { session: Session }) {
   );
 }
 
-function Tokens({ session }: { session: Session }) {
+function Tokens({ session, onStage }: { session: Session; onStage: (s: Stage, v: boolean) => void }) {
   const { token, profile } = session;
   const [tokenClass, setTokenClass] = useState<TokenClass | null>(null);
   const [minted, setMinted] = useState<TokenInstance | null>(null);
@@ -346,6 +462,11 @@ function Tokens({ session }: { session: Session }) {
   useEffect(() => {
     api.getTokenClass('PROP-DEED').then(setTokenClass).catch(() => setTokenClass(null));
   }, []);
+
+  // Report to the progress rail whenever a token is (or isn't) held.
+  useEffect(() => {
+    onStage('token', Boolean(minted));
+  }, [minted, onStage]);
 
   async function mint() {
     setBusy(true);
@@ -433,7 +554,7 @@ function Tokens({ session }: { session: Session }) {
   );
 }
 
-function Transfer({ session }: { session: Session }) {
+function Transfer({ session, onStage }: { session: Session; onStage: (s: Stage, v: boolean) => void }) {
   const { token } = session;
   const [held, setHeld] = useState<TokenInstance | null>(null);
   const [recipient, setRecipient] = useState('bob');
@@ -464,6 +585,15 @@ function Transfer({ session }: { session: Session }) {
     const leaf = tampered ? (proof.leafHash.startsWith('0') ? 'f' : '0') + proof.leafHash.slice(1) : proof.leafHash;
     return foldMerkleProof(leaf, proof.proofPath) === proof.merkleRoot;
   }, [proof, tampered]);
+
+  // Report milestones: the transfer happened once a proof exists; the proof stage is the
+  // browser's own verdict (so toggling "tamper" un-lights it — verification really is live).
+  useEffect(() => {
+    onStage('transfer', Boolean(proof));
+  }, [proof, onStage]);
+  useEffect(() => {
+    onStage('proof', verdict === true);
+  }, [verdict, onStage]);
 
   async function transfer() {
     if (!held) {

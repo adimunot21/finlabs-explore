@@ -96,6 +96,40 @@ button.danger { background: transparent; color: var(--bad); border: 1px solid rg
 .check.ok { color: var(--ok); border-color: rgba(63, 185, 80, 0.4); background: rgba(63, 185, 80, 0.1); }
 .check.bad { color: var(--bad); border-color: rgba(248, 81, 73, 0.4); background: rgba(248, 81, 73, 0.1); }
 
+/* Guided-demo shell (Phase 7) */
+.story { background: linear-gradient(180deg, rgba(110,168,254,0.08), transparent); }
+.story h2 { color: var(--accent); }
+
+.rail {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; gap: 0.4rem; flex-wrap: wrap;
+  background: rgba(15,17,21,0.85); backdrop-filter: blur(6px);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 0.6rem 0.7rem; margin-bottom: 1.25rem;
+}
+.rail-step { display: flex; align-items: center; gap: 0.45rem; flex: 1 1 auto; min-width: 120px; opacity: 0.55; }
+.rail-step.done { opacity: 1; }
+.rail-dot {
+  display: grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 999px;
+  border: 1px solid var(--border); font-size: 0.8rem; font-weight: 700; color: var(--muted); flex: none;
+}
+.rail-step.done .rail-dot { background: var(--ok); color: #0b1020; border-color: var(--ok); }
+.rail-text { display: flex; flex-direction: column; line-height: 1.15; }
+.rail-text strong { font-size: 0.82rem; }
+.rail-text em { font-size: 0.68rem; color: var(--muted); font-style: normal; }
+
+.sessionbar {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+  font-size: 0.85rem; color: var(--muted);
+  border: 1px dashed var(--border); border-radius: 10px; padding: 0.55rem 0.8rem; margin-bottom: 1.25rem;
+}
+button.small { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+
+.done { background: linear-gradient(180deg, rgba(63,185,80,0.1), transparent); border-color: rgba(63,185,80,0.35); }
+.done h2 { color: var(--ok); }
+.done-list { margin: 0.5rem 0 1rem; padding-left: 1.1rem; color: var(--text); font-size: 0.9rem; }
+.done-list li { margin: 0.3rem 0; }
+
 footer { color: var(--muted); font-size: 0.8rem; margin-top: 2rem; text-align: center; }
 
 @media (max-width: 560px) { .form { grid-template-columns: 1fr; } }

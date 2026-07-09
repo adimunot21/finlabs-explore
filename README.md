@@ -54,6 +54,9 @@ logged and clearly marked as such.
 - **Phase 6** (Movement) — done. Transfer a token on a stand-in unified ledger, recorded as a tamper-evident
   state-commitment chain with a real Merkle proof of inclusion the browser re-verifies (leaf→root). See
   [`docs/06_movement.md`](docs/06_movement.md).
+- **Phase 7** (Put it together) — done. Phases 3–6 wired into one guided, zero-context demo: intro framing, a
+  progress rail that lights up as you go, and a closing summary. See
+  [`docs/07_app_walkthrough.md`](docs/07_app_walkthrough.md).
 
 ## Running it (Phases 3–6)
 

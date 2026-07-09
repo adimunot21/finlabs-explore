@@ -356,4 +356,6 @@ non-compliant asset can't be created ([`05_tokens.md`](05_tokens.md)).
 Phase 6 done — a token is **transferred** on a stand-in unified ledger, recorded as a tamper-evident
 **state-commitment chain**, with a real **Merkle proof** of inclusion that the browser re-folds leaf→root
 (and tampering breaks). This is the artifact **UILP** carries between ledgers ([`06_movement.md`](06_movement.md)).
-Next update: Phase 7 (put it together) + `09_how_this_maps_to_finternet.md`.*
+Phase 7 done — Phases 3–6 are wired into one guided, zero-context demo (intro framing, a live progress rail,
+closing summary): the full **account → credential → token → transfer → proof** lifecycle in the browser
+([`07_app_walkthrough.md`](07_app_walkthrough.md)). Next update: Phase 8 — `09_how_this_maps_to_finternet.md`.*
