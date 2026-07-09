@@ -65,7 +65,9 @@ creating a new instance of a class and assigning ownership. **Our code:** `handl
 new `tokenId`, and the token is immediately fetchable via `POST /v1/token/get`.
 
 ## 4. The compliance hook — "regulation at the flow level" (the point of the phase)
-**Paper:** §4.4 ("safe by design"). In the old world, compliance is a check some app runs *before* it writes a
+**Paper:** two sentences, two sections — *"rules and regulations applied at the **flow level**"* (end of §3,
+p.19) and *"**safe by design** … a programmatic enforcement of rules where the system architecture itself
+prevents non-compliant actions from being executed"* (§4.4, p.21). In the old world, compliance is a check some app runs *before* it writes a
 row; skip the check and a non-compliant asset still exists. The paper moves the rule *into the act of
 creating the asset*: the token manager **refuses to mint** unless policy holds, so a non-compliant token never
 comes into existence. **Our code (the heart of `tokens.ts`):**

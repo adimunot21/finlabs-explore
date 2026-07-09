@@ -55,7 +55,7 @@ points back). You can watch the token's `state.stateCommitment` change after a t
 that commits to all of them. To prove one transaction is included you ship only a **`proofPath`** — one
 sibling hash per level — and the verifier re-folds `leafHash → root`. If it equals the (publicly anchored)
 root, inclusion is proven **without holding the data**. That compact, independently-checkable proof is what
-**UILP (Universal Ledger Interoperability Protocol)** carries between ledgers; the paper calls the growing
+**UILP (Unified Interledger Protocol, §5.4.6)** carries between ledgers; the paper calls the growing
 record of them a **proof chain** (§5.4.6). **Our code:** `ledger.getProof` builds the tree from all leaves and
 returns the path; the **browser** re-verifies it in `app/src/lib/crypto.ts` → `foldMerkleProof`, needing only
 SHA-256 — the same "verify it yourself, trust no one" story as Phases 3–4.

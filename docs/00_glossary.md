@@ -103,7 +103,10 @@ into small tradable portions). Tokenization lets each distinct *right* over an a
 policing behavior after the fact, the *architecture itself* prevents non-compliant actions from executing —
 compliance is a programmatic gate on the flow. Rules attach to the asset/flow, not to a central chokepoint.
 This is the concept Phase 5 makes real (a token mint that *cannot* succeed without a valid credential).
-— Paper §4.4 · Spec: `api/token-class-config-interfaces.yaml` (hooks/overrides)
+Verbatim (§4.4): *"a programmatic enforcement of rules where the system architecture itself prevents
+non-compliant actions from being executed."* **⚠ Two sections, one idea:** the phrase *"rules and regulations
+applied at the **flow level**"* is from the **end of §3** (p.19); *"safe by design"* is **§4.4** (p.21). Don't
+cite both to §4.4. — Paper §3 (flow-level) + §4.4 (safe by design) · Spec: `api/token-class-config-interfaces.yaml` (hooks/overrides)
 
 **Customizable regulatory enforcement (who / what / how much).** How authorities tailor rules per asset
 type and jurisdiction: **Access restrictions (who)** via whitelists/blacklists; **sector/asset-specific
@@ -358,4 +361,9 @@ Phase 6 done — a token is **transferred** on a stand-in unified ledger, record
 (and tampering breaks). This is the artifact **UILP** carries between ledgers ([`06_movement.md`](06_movement.md)).
 Phase 7 done — Phases 3–6 are wired into one guided, zero-context demo (intro framing, a live progress rail,
 closing summary): the full **account → credential → token → transfer → proof** lifecycle in the browser
-([`07_app_walkthrough.md`](07_app_walkthrough.md)). Next update: Phase 8 — `09_how_this_maps_to_finternet.md`.*
+([`07_app_walkthrough.md`](07_app_walkthrough.md)).
+Phase 8 done — the paper is walked section by section in
+[`09_how_this_maps_to_finternet.md`](09_how_this_maps_to_finternet.md), with an honest verdict per idea
+(demonstrated / partial / understood-but-not-built / stand-in) and a list of what we did **not** build.
+Corrections made there: UILP = **Unified Interledger Protocol**, and "flow-level regulation" (§3) is a
+different sentence from "safe by design" (§4.4). Only optional Phase 9 (fraud/anomaly detection) remains.*

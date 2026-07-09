@@ -57,6 +57,11 @@ logged and clearly marked as such.
 - **Phase 7** (Put it together) — done. Phases 3–6 wired into one guided, zero-context demo: intro framing, a
   progress rail that lights up as you go, and a closing summary. See
   [`docs/07_app_walkthrough.md`](docs/07_app_walkthrough.md).
+- **Phase 8** (Tie it back to the paper) — done. A section-by-section walk through the paper with an honest
+  verdict on each idea, and an explicit list of what was *not* built. See
+  [`docs/09_how_this_maps_to_finternet.md`](docs/09_how_this_maps_to_finternet.md).
+
+Only **Phase 9** (optional fraud/anomaly detection) remains. The project's definition of done is met.
 
 ## Running it (Phases 3–6)
 
