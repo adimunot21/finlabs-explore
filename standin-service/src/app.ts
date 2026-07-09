@@ -40,6 +40,14 @@ export function createApp(): express.Express {
   app.post('/v1/keys/sign', h.keysSign);
   app.post('/v1/keys/public', h.keysPublic);
 
+  // credentials (STAND-IN endpoints — no dedicated spec; credential data is validated
+  // against specs-vendor/schemas/credential/credential.schema.json inside credentials.ts).
+  app.post('/v1/credentials/issuer', h.credentialIssuer);
+  app.post('/v1/credentials/issue', h.credentialIssue);
+  app.post('/v1/credentials/verify', h.credentialVerify);
+  app.post('/v1/credentials/revoke', h.credentialRevoke);
+  app.post('/v1/credentials/list', h.credentialList);
+
   // Turn express-openapi-validator errors (and anything else) into a spec-shaped
   // error envelope instead of the library's default HTML/JSON.
   app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {

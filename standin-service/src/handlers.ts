@@ -4,6 +4,7 @@
 import type { Request, Response } from 'express';
 import { ok, fail, bearerToken, type RequestEnvelope } from './envelope.js';
 import * as store from './store.js';
+import * as credentials from './credentials.js';
 import { signHashHex } from './crypto.js';
 
 const FINTERNET_ADDRESS_RE = /^[a-z0-9_-]+$/; // core.yaml FinternetAddress pattern
@@ -104,6 +105,57 @@ export function keysPublic(req: Request, res: Response): void {
     return fail(res, context, 404, 'KEY_NOT_FOUND', `No key for reference '${payload.keyReference}'`);
   }
   ok(res, context, { publicKey: account.publicKeyMultibase, address: account.address });
+}
+
+// ---- credentials (STAND-IN endpoints; credential data validated against the real schema) ----
+
+// POST /v1/credentials/issuer -> who is issuing (a stand-in trust service provider)
+export function credentialIssuer(req: Request, res: Response): void {
+  const { context } = req.body as RequestEnvelope;
+  ok(res, context, credentials.issuerInfo);
+}
+
+// POST /v1/credentials/issue  (payload: {holderDid, subject?, credentialType?, verificationLevel?})
+export function credentialIssue(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<credentials.IssueInput>;
+  if (!payload?.holderDid || !payload.holderDid.startsWith('did:')) {
+    return fail(res, context, 400, 'INVALID_HOLDER', 'payload.holderDid must be a DID');
+  }
+  try {
+    const credential = credentials.issueCredential(payload);
+    ok(res, context, { credential }, 201);
+  } catch (e) {
+    fail(res, context, 500, 'ISSUE_FAILED', (e as Error).message);
+  }
+}
+
+// POST /v1/credentials/verify  (payload: {credentialId} or {credential})
+export function credentialVerify(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<{
+    credentialId?: string;
+    credential?: credentials.CredentialToken;
+  }>;
+  const credential = payload.credential ?? (payload.credentialId ? credentials.getCredential(payload.credentialId) : undefined);
+  if (!credential) {
+    return fail(res, context, 404, 'NOT_FOUND', 'no credential given or found by id');
+  }
+  ok(res, context, credentials.verifyCredential(credential));
+}
+
+// POST /v1/credentials/revoke  (payload: {credentialId})
+export function credentialRevoke(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<{ credentialId: string }>;
+  const credential = credentials.revokeCredential(payload.credentialId);
+  if (!credential) {
+    return fail(res, context, 404, 'NOT_FOUND', `no credential '${payload.credentialId}'`);
+  }
+  ok(res, context, { id: credential.id, status: credential.state.status });
+}
+
+// POST /v1/credentials/list  (payload: {holderDid}) -> credentials held by a DID
+export function credentialList(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<{ holderDid: string }>;
+  ok(res, context, { credentials: credentials.credentialsForHolder(payload.holderDid) });
 }
 
 // Resolve the account behind context.authorization, or send 401 and return undefined.

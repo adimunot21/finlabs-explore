@@ -137,6 +137,7 @@ only the implementation behind it is ours.
 | Stand-in | Reason it exists | Specs it validates against | Marked |
 |---|---|---|---|
 | `standin-service/` — identity (Phase 3) | The one runnable reference (`finternet-api`) implements an **older, different** shape than the canonical specs (`/v1/users` + plain JSON vs. `/v1/account/create` + envelope + DIDs; see `docs/02_spec_walkthrough.md`). We chose to build Wayfinder to the **canonical specs**, so we need a spec-shaped identity backend. | `specs-vendor/api/accounts-interfaces.yaml` + `key-management-interfaces.yaml`, enforced at runtime by `express-openapi-validator` | `// STAND-IN:` headers on `config.ts`, `store.ts`, `handlers.ts`, `app.ts`; this table |
+| `standin-service/src/credentials.ts` — credentials (Phase 4) | `specs-vendor/api` has **no credential-issuance endpoint** (credentials are modeled as tokens; there's a schema but no issue/verify/revoke API). So the endpoints `/v1/credentials/{issue,verify,revoke,list}` are **our design**. | The **credential data** is validated (ajv) against the real JSON Schema `specs-vendor/schemas/credential/credential.schema.json` on issue and verify. | `// STAND-IN:` header on `credentials.ts`; this table |
 
 **What's real vs. stand-in inside it:** the cryptography is **real** — genuine Ed25519 keypairs, `did:key`
 encoding, and sign/verify (interoperable with any standard implementation; see `src/crypto.ts` + passing
