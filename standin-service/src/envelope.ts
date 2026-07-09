@@ -22,7 +22,7 @@ export interface RequestEnvelope<P = unknown> {
   signature?: { type: string; jws: string } | null;
 }
 
-type Status = 'successful' | 'failed' | 'pending';
+type Status = 'successful' | 'failed' | 'pending' | 'accepted';
 
 function responseContext(reqCtx: RequestContext | undefined, status: Status) {
   return {
@@ -38,6 +38,20 @@ function responseContext(reqCtx: RequestContext | undefined, status: Status) {
 /** Send a spec-shaped success envelope. */
 export function ok(res: Response, reqCtx: RequestContext | undefined, response: unknown, http = 200): void {
   res.status(http).json({ context: responseContext(reqCtx, 'successful'), response });
+}
+
+/**
+ * Send a spec-shaped async "accepted" envelope (202). Used by /v1/token/mint: the
+ * ApiResponse_TransactAccepted schema requires context.status == "accepted" and a
+ * context.transactionId, with the txId echoed in the response body.
+ */
+export function accepted(
+  res: Response,
+  reqCtx: RequestContext | undefined,
+  response: unknown,
+  transactionId: string,
+): void {
+  res.status(202).json({ context: { ...responseContext(reqCtx, 'accepted'), transactionId }, response });
 }
 
 /** Send a spec-shaped error envelope (ApiError: ResponseContext.error + empty response). */

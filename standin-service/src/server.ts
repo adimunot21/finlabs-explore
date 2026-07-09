@@ -9,6 +9,7 @@ app.listen(CONFIG.port, CONFIG.host, () => {
     `[standin] Wayfinder identity stand-in listening on http://${CONFIG.host}:${CONFIG.port}\n` +
       `[standin] validating against:\n` +
       `           - ${CONFIG.specs.accounts}\n` +
-      `           - ${CONFIG.specs.keyManagement}`,
+      `           - ${CONFIG.specs.keyManagement}\n` +
+      `           - ${CONFIG.specs.token}`,
   );
 });

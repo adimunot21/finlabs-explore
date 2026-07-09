@@ -2,9 +2,12 @@
 // -interfaces.yaml (enforced by express-openapi-validator in app.ts); the logic is ours.
 
 import type { Request, Response } from 'express';
-import { ok, fail, bearerToken, type RequestEnvelope } from './envelope.js';
+import { ok, fail, accepted, bearerToken, type RequestEnvelope } from './envelope.js';
 import * as store from './store.js';
 import * as credentials from './credentials.js';
+import * as tokenclasses from './tokenclasses.js';
+import * as tokens from './tokens.js';
+import { randomUUID } from 'node:crypto';
 import { signHashHex } from './crypto.js';
 
 const FINTERNET_ADDRESS_RE = /^[a-z0-9_-]+$/; // core.yaml FinternetAddress pattern
@@ -156,6 +159,84 @@ export function credentialRevoke(req: Request, res: Response): void {
 export function credentialList(req: Request, res: Response): void {
   const { context, payload } = req.body as RequestEnvelope<{ holderDid: string }>;
   ok(res, context, { credentials: credentials.credentialsForHolder(payload.holderDid) });
+}
+
+// ---- tokens & token classes (token-interfaces.yaml; compliance hook is ours) ----
+
+// POST /v1/registry/tokenclasses/register (payload: RegisterTokenClassRequest) -> TokenClass (201)
+export function tokenClassRegister(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<tokenclasses.RegisterTokenClassInput>;
+  if (!payload?.tokenClass || !payload.tokenStandard || !payload.name) {
+    return fail(res, context, 400, 'INVALID_REQUEST', 'tokenClass, tokenStandard and name are required');
+  }
+  if (tokenclasses.tokenClassExists(payload.tokenClass)) {
+    return fail(res, context, 409, 'RESOURCE_CONFLICT', `Token class '${payload.tokenClass}' already exists`);
+  }
+  ok(res, context, tokenclasses.registerTokenClass(payload), 201);
+}
+
+// POST /v1/registry/tokenclasses/get (payload: {tokenClass}) -> TokenClass
+export function tokenClassGet(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<{ tokenClass: string }>;
+  const tc = tokenclasses.getTokenClass(payload.tokenClass);
+  if (!tc) return fail(res, context, 404, 'RESOURCE_NOT_FOUND', `No token class '${payload.tokenClass}'`);
+  ok(res, context, tc);
+}
+
+// POST /v1/token/mint (payload: MintTokenRequest {tokenClass, initialSupply, metadata?, data?})
+// The caller (identified by context.authorization) is the owner. Compliance is enforced here.
+export function tokenMint(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<{
+    tokenClass: string;
+    initialSupply: string;
+    metadata?: { name?: string };
+    data?: Record<string, unknown>;
+  }>;
+  const account = tokenAccount(req, res);
+  if (!account) return;
+
+  const result = tokens.mintToken({
+    tokenClass: payload.tokenClass,
+    ownerDid: account.did,
+    initialSupply: payload.initialSupply,
+    name: payload.metadata?.name,
+    data: payload.data,
+  });
+
+  if (!result.ok) {
+    // Compliance failure is a 403 — the token is refused at creation ("safe by design").
+    const http = result.code === 'CLASS_NOT_FOUND' ? 404 : 403;
+    return fail(res, context, http, result.code, result.message);
+  }
+
+  // Async envelope, exactly like the real spec: 202 accepted + a transaction id. We resolve
+  // synchronously in memory, so the token is immediately fetchable via /v1/token/get.
+  // NB: context.transactionId is validated as `format: uuid` (the shared accounts ResponseContext),
+  // so we use a bare UUID — which also satisfies the async envelope's `uri-reference` override.
+  const txId = randomUUID();
+  accepted(
+    res,
+    context,
+    { txId, tokenId: result.token.id, status: 'submitted', message: `Minted ${payload.tokenClass}` },
+    txId,
+  );
+}
+
+// POST /v1/token/get (payload: {tokenId}) -> Token
+export function tokenGet(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<{ tokenId: string }>;
+  const token = tokens.getToken(payload.tokenId);
+  if (!token) return fail(res, context, 404, 'RESOURCE_NOT_FOUND', `No token '${payload.tokenId}'`);
+  ok(res, context, token);
+}
+
+// POST /v1/token/search (owner inferred from context.authorization) -> TokenList
+export function tokenSearch(req: Request, res: Response): void {
+  const { context } = req.body as RequestEnvelope;
+  const account = tokenAccount(req, res);
+  if (!account) return;
+  const owned = tokens.tokensForOwner(account.did);
+  ok(res, context, { tokens: owned, pagination: { total: owned.length, limit: 50, offset: 0 } });
 }
 
 // Resolve the account behind context.authorization, or send 401 and return undefined.

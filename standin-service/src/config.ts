@@ -19,6 +19,7 @@ export const CONFIG = {
   specs: {
     accounts: resolve(specsApiDir, 'accounts-interfaces.yaml'),
     keyManagement: resolve(specsApiDir, 'key-management-interfaces.yaml'),
+    token: resolve(specsApiDir, 'token-interfaces.yaml'), // Phase 5: tokens + token classes
   },
   // Stand-in token lifetime advertised in RegistrationSuccessResponse.expiresIn.
   tokenExpiresInSeconds: 3600,

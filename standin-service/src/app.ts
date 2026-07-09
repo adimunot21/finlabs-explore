@@ -22,8 +22,8 @@ export function createApp(): express.Express {
     ignoreUndocumented: true, // let each validator ignore paths it doesn't define
   } as const;
 
-  // One validator over the merged accounts + key-management contract (see spec.ts).
-  const apiSpec = loadMergedSpec([CONFIG.specs.accounts, CONFIG.specs.keyManagement]);
+  // One validator over the merged accounts + key-management + token contract (see spec.ts).
+  const apiSpec = loadMergedSpec([CONFIG.specs.accounts, CONFIG.specs.keyManagement, CONFIG.specs.token]);
   app.use(OpenApiValidator.middleware({ apiSpec: apiSpec as never, ...validatorOptions }));
 
   // A tiny non-spec health check for ops (ignored by both validators).
@@ -47,6 +47,13 @@ export function createApp(): express.Express {
   app.post('/v1/credentials/verify', h.credentialVerify);
   app.post('/v1/credentials/revoke', h.credentialRevoke);
   app.post('/v1/credentials/list', h.credentialList);
+
+  // token-interfaces.yaml — token classes + tokens. Mint enforces the compliance hook.
+  app.post('/v1/registry/tokenclasses/register', h.tokenClassRegister);
+  app.post('/v1/registry/tokenclasses/get', h.tokenClassGet);
+  app.post('/v1/token/mint', h.tokenMint);
+  app.post('/v1/token/get', h.tokenGet);
+  app.post('/v1/token/search', h.tokenSearch);
 
   // Turn express-openapi-validator errors (and anything else) into a spec-shaped
   // error envelope instead of the library's default HTML/JSON.
