@@ -40,6 +40,8 @@ logged and clearly marked as such.
 - **Phase 1** (Run their reference code) — done. `reference/finternet-api` builds and runs (a real
   in-memory Finternet Application API: users → token managers → accounts); the Solana Unified Ledger
   provider does not build. See [`docs/01_reference_code_status.md`](docs/01_reference_code_status.md).
+- **Phase 2** (Read the specs, file by file) — done. Plain-English walkthrough of all 8 API interfaces and
+  6 schema domains in [`docs/02_spec_walkthrough.md`](docs/02_spec_walkthrough.md).
 
 No application code of our own yet (`app/` starts in Phase 3). Building the reference code needs Rust
 (`rustup`); it's compiled to a git-ignored `target/`.

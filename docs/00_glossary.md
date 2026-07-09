@@ -342,4 +342,6 @@ principle. — Spec: `schemas/README.md`, all `schemas/**/context.jsonld`
 
 *Phase 1 done — `reference/finternet-api` builds and runs (Users/Token-managers/Accounts); the Solana
 Unified Ledger provider does not build. Details in [`01_reference_code_status.md`](01_reference_code_status.md).
-Next update: Phase 3 will add identity/keys terms as we wire accounts against the real API.*
+Phase 2 done — every spec file walked through in [`02_spec_walkthrough.md`](02_spec_walkthrough.md), with the
+real field names behind each term and the spec-vs-reference-vs-paper divergences logged.
+Next update: Phase 3 will add identity/keys terms as we wire accounts against these shapes.*
