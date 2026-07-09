@@ -9,6 +9,9 @@ import type {
   AccountKeyList,
   SignatureResponse,
   EntityType,
+  IssuerInfo,
+  CredentialToken,
+  VerificationResult,
 } from './types.js';
 
 const BASE = '/api';
@@ -70,4 +73,16 @@ export const api = {
 
   sign: (keyReference: string, hash: string) =>
     post<SignatureResponse>('/v1/keys/sign', 'keys.sign', { keyReference, hash }),
+
+  // ---- credentials (STAND-IN endpoints) ----
+  getIssuer: () => post<IssuerInfo>('/v1/credentials/issuer', 'credentials.issuer', {}),
+
+  issueCredential: (payload: { holderDid: string; subject?: Record<string, unknown> }) =>
+    post<{ credential: CredentialToken }>('/v1/credentials/issue', 'credentials.issue', payload),
+
+  verifyCredential: (credential: CredentialToken) =>
+    post<VerificationResult>('/v1/credentials/verify', 'credentials.verify', { credential }),
+
+  revokeCredential: (credentialId: string) =>
+    post<{ id: string; status: string }>('/v1/credentials/revoke', 'credentials.revoke', { credentialId }),
 };

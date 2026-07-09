@@ -87,6 +87,14 @@ button.ghost { background: transparent; color: var(--muted); border: 1px solid v
 .verdict.ok { background: rgba(63, 185, 80, 0.12); color: var(--ok); border: 1px solid rgba(63, 185, 80, 0.35); }
 .verdict.bad { background: rgba(248, 81, 73, 0.12); color: var(--bad); border: 1px solid rgba(248, 81, 73, 0.35); }
 
+button.danger { background: transparent; color: var(--bad); border: 1px solid rgba(248, 81, 73, 0.5); }
+.btn-row { display: flex; gap: 0.6rem; margin-top: 1rem; flex-wrap: wrap; }
+
+.checks { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+.check { font-size: 0.78rem; border-radius: 999px; padding: 0.2rem 0.6rem; border: 1px solid var(--border); }
+.check.ok { color: var(--ok); border-color: rgba(63, 185, 80, 0.4); background: rgba(63, 185, 80, 0.1); }
+.check.bad { color: var(--bad); border-color: rgba(248, 81, 73, 0.4); background: rgba(248, 81, 73, 0.1); }
+
 footer { color: var(--muted); font-size: 0.8rem; margin-top: 2rem; text-align: center; }
 
 @media (max-width: 560px) { .form { grid-template-columns: 1fr; } }

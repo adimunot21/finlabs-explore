@@ -1,7 +1,13 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ApiError } from './lib/client.js';
 import { sha256Hex, verifyHashHex, publicKeyFromMultibase } from './lib/crypto.js';
-import type { AccountProfile, AccountKeyInfo, EntityType } from './lib/types.js';
+import type {
+  AccountProfile,
+  AccountKeyInfo,
+  EntityType,
+  CredentialToken,
+  VerificationResult,
+} from './lib/types.js';
 
 interface Session {
   token: string;
@@ -17,9 +23,11 @@ export default function App() {
       <header>
         <h1>Wayfinder</h1>
         <p className="sub">
-          Phase 3 · <strong>Identity &amp; Keys</strong> — create a real Finternet account, then sign and
-          verify a message. Everything here runs against the real spec shapes
-          (<code>specs-vendor/api</code>) with genuine Ed25519 / <code>did:key</code> cryptography.
+          Phase 3 · <strong>Identity &amp; Keys</strong> and Phase 4 · <strong>Trust &amp; Credentials</strong> —
+          create a real Finternet account, sign and verify a message, then have a trust provider issue you a
+          verifiable credential and watch verification fail once it's revoked. Real Ed25519 /{' '}
+          <code>did:key</code> cryptography; credential data validated against the vendored{' '}
+          <code>credential.schema.json</code>.
         </p>
       </header>
 
@@ -29,6 +37,7 @@ export default function App() {
         <>
           <Identity session={session} />
           <SignAndVerify session={session} />
+          <Credentials session={session} />
           <button className="ghost" onClick={() => setSession(null)}>
             ← Start over with a new account
           </button>
@@ -37,8 +46,8 @@ export default function App() {
 
       <footer>
         <span>
-          A DID is a public key you control · a signature proves who authorized what · verifying needs only
-          the public key.
+          A DID is a public key you control · a signature proves who authorized what · a credential is a
+          signed claim about you that anyone can verify — and an issuer can revoke.
         </span>
       </footer>
     </div>
@@ -195,6 +204,133 @@ function SignAndVerify({ session }: { session: Session }) {
         </>
       )}
     </section>
+  );
+}
+
+function Credentials({ session }: { session: Session }) {
+  const { profile } = session;
+  const [issuer, setIssuer] = useState<{ did: string; name: string } | null>(null);
+  const [credential, setCredential] = useState<CredentialToken | null>(null);
+  const [result, setResult] = useState<VerificationResult | null>(null);
+  const [busy, setBusy] = useState<null | 'issue' | 'verify' | 'revoke'>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Who would be attesting to us? Fetch the stand-in trust provider once.
+  useEffect(() => {
+    api.getIssuer().then(setIssuer).catch(() => setIssuer(null));
+  }, []);
+
+  function run<T>(kind: 'issue' | 'verify' | 'revoke', fn: () => Promise<T>): Promise<T | undefined> {
+    setBusy(kind);
+    setError(null);
+    return fn()
+      .catch((e) => {
+        setError(e instanceof ApiError ? `${e.code}: ${e.message}` : (e as Error).message);
+        return undefined;
+      })
+      .finally(() => setBusy(null));
+  }
+
+  async function issue() {
+    const out = await run('issue', () =>
+      api.issueCredential({
+        holderDid: profile.did,
+        subject: { fullName: profile.name, verificationLevel: 'enhanced' },
+      }),
+    );
+    if (!out) return;
+    setCredential(out.credential);
+    // Immediately verify what we were handed, so the "green" is the server's real verdict.
+    const v = await run('verify', () => api.verifyCredential(out.credential));
+    if (v) setResult(v);
+  }
+
+  async function reverify() {
+    if (!credential) return;
+    const v = await run('verify', () => api.verifyCredential(credential));
+    if (v) setResult(v);
+  }
+
+  async function revoke() {
+    if (!credential) return;
+    const ok = await run('revoke', () => api.revokeCredential(credential.id));
+    if (!ok) return;
+    await reverify(); // same credential, but now the issuer's status list says "revoked"
+  }
+
+  const vc = credential?.claims[0];
+
+  return (
+    <section className="card">
+      <h2>5 · Get a verifiable credential</h2>
+      <p className="hint">
+        A <em>trust provider</em> (here, a stand-in KYC issuer with its own <code>did:key</code>) signs a
+        claim <em>about you</em> — bound to your DID. Anyone can verify it with the issuer's public key. The
+        issuer can also <em>revoke</em> it, and verification then fails even though the signature is still
+        mathematically valid.
+      </p>
+      {issuer && (
+        <Row label="Issuer">
+          <span className="mono break">{issuer.did}</span>
+          <span className="tag">{issuer.name}</span>
+        </Row>
+      )}
+
+      {!credential ? (
+        <button onClick={issue} disabled={busy !== null}>
+          {busy === 'issue' ? 'Issuing…' : 'Request KYC credential'}
+        </button>
+      ) : (
+        <>
+          <Row label="Credential">
+            <span className="mono break">{credential.id}</span>
+            <span className="tag">{String(credential.metadata.name ?? credential['@type'])}</span>
+          </Row>
+          <Row label="Subject (you)">
+            <span className="mono break">{String(vc?.credentialSubject.id ?? profile.did)}</span>
+          </Row>
+          <Row label="Proof">
+            <span className="mono">{vc?.proof?.type ?? '—'}</span>
+          </Row>
+
+          {result && (
+            <>
+              <div className="checks">
+                <Check ok={result.checks.schemaValid} label="Schema valid" />
+                <Check ok={result.checks.signatureValid} label="Issuer signature" />
+                <Check ok={result.checks.notRevoked} label="Not revoked" />
+                <Check ok={result.checks.notExpired} label="Not expired" />
+              </div>
+              <div className={`verdict ${result.valid ? 'ok' : 'bad'}`}>
+                {result.valid
+                  ? '✓ Credential valid — the issuer really attested this, unaltered and unrevoked.'
+                  : `✗ Invalid — ${result.reason ?? 'verification failed.'}`}
+              </div>
+            </>
+          )}
+
+          <div className="btn-row">
+            <button className="ghost" onClick={reverify} disabled={busy !== null}>
+              {busy === 'verify' ? 'Verifying…' : 'Re-verify'}
+            </button>
+            {result?.checks.notRevoked && (
+              <button className="danger" onClick={revoke} disabled={busy !== null}>
+                {busy === 'revoke' ? 'Revoking…' : 'Revoke (as the issuer)'}
+              </button>
+            )}
+          </div>
+        </>
+      )}
+      {error && <p className="error">{error}</p>}
+    </section>
+  );
+}
+
+function Check({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span className={`check ${ok ? 'ok' : 'bad'}`}>
+      {ok ? '✓' : '✗'} {label}
+    </span>
   );
 }
 

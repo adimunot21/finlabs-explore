@@ -147,7 +147,7 @@ see in the proof is what gets executed."* — Paper §5.4.4 · Spec: `api/README
 
 ---
 
-## E. Trust: credentials & attestations (Phase 4 territory)
+## E. Trust: credentials & attestations (Phase 4 — done, see [`04_credentials.md`](04_credentials.md))
 
 **Verifiable Credential (VC).** A tamper-evident, cryptographically-signed digital claim about someone or
 something (e.g. "this account passed KYC"), following the W3C VC standard. It has an **issuer**, a
@@ -346,4 +346,8 @@ Phase 2 done — every spec file walked through in [`02_spec_walkthrough.md`](02
 real field names behind each term and the spec-vs-reference-vs-paper divergences logged.
 Phase 3 done — DID, key pair, digital signature, and addressing are now backed by working code
 ([`03_identity_and_keys.md`](03_identity_and_keys.md)): real Ed25519/`did:key`, create→sign→verify, all
-against the real spec shapes. Next update: Phase 4 (credentials/attestations, registry).*
+against the real spec shapes.
+Phase 4 done — a stand-in trust provider issues a real Ed25519-signed **verifiable credential** bound to the
+holder's DID, verification runs four independent checks (schema/signature/revocation/expiry), and revocation
+makes it fail while the signature stays valid ([`04_credentials.md`](04_credentials.md)). Next update:
+Phase 5 (tokens & token classes).*

@@ -45,8 +45,11 @@ logged and clearly marked as such.
 - **Phase 3** (Identity & keys) — done. `standin-service/` (spec-validated) + `app/` (React) do a real
   create-account → DID → sign → verify flow with genuine Ed25519/`did:key` crypto. See
   [`docs/03_identity_and_keys.md`](docs/03_identity_and_keys.md).
+- **Phase 4** (Trust & credentials) — done. A stand-in trust provider issues a real Ed25519-signed
+  verifiable credential bound to your DID; verification runs four independent checks and revocation makes it
+  fail while the signature stays valid. See [`docs/04_credentials.md`](docs/04_credentials.md).
 
-## Running it (Phase 3)
+## Running it (Phases 3–4)
 
 ```bash
 cd standin-service && npm install && npm start   # identity backend on :8081
