@@ -340,5 +340,6 @@ principle. — Spec: `schemas/README.md`, all `schemas/**/context.jsonld`
 - **UILP / proof-chain wire format:** described in the paper, **not** specified as a wire protocol in the
   specs → the known stand-in risk for Phase 6.
 
-*Next update: Phase 1 (reference-code status) will add ledger-implementation terms once we've tried to run
-`reference/finternet-api` and `reference/finternet-sandbox`.*
+*Phase 1 done — `reference/finternet-api` builds and runs (Users/Token-managers/Accounts); the Solana
+Unified Ledger provider does not build. Details in [`01_reference_code_status.md`](01_reference_code_status.md).
+Next update: Phase 3 will add identity/keys terms as we wire accounts against the real API.*

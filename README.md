@@ -36,4 +36,10 @@ logged and clearly marked as such.
 
 ## Status
 
-Phase 0 (Glossary & Orientation) — in progress. No application code yet.
+- **Phase 0** (Glossary & Orientation) — done.
+- **Phase 1** (Run their reference code) — done. `reference/finternet-api` builds and runs (a real
+  in-memory Finternet Application API: users → token managers → accounts); the Solana Unified Ledger
+  provider does not build. See [`docs/01_reference_code_status.md`](docs/01_reference_code_status.md).
+
+No application code of our own yet (`app/` starts in Phase 3). Building the reference code needs Rust
+(`rustup`); it's compiled to a git-ignored `target/`.
