@@ -128,6 +128,26 @@ now (revisit if Phase 6 needs a richer ledger than a minimal stand-in).
 
 ---
 
+## Stand-ins built (running log)
+
+Per `CLAUDE.md`, every stand-in we build (because the real reference code doesn't cover it or doesn't run)
+is logged here with its reason. Its **shape is always the specs'** — validated against the real OpenAPI —
+only the implementation behind it is ours.
+
+| Stand-in | Reason it exists | Specs it validates against | Marked |
+|---|---|---|---|
+| `standin-service/` — identity (Phase 3) | The one runnable reference (`finternet-api`) implements an **older, different** shape than the canonical specs (`/v1/users` + plain JSON vs. `/v1/account/create` + envelope + DIDs; see `docs/02_spec_walkthrough.md`). We chose to build Wayfinder to the **canonical specs**, so we need a spec-shaped identity backend. | `specs-vendor/api/accounts-interfaces.yaml` + `key-management-interfaces.yaml`, enforced at runtime by `express-openapi-validator` | `// STAND-IN:` headers on `config.ts`, `store.ts`, `handlers.ts`, `app.ts`; this table |
+
+**What's real vs. stand-in inside it:** the cryptography is **real** — genuine Ed25519 keypairs, `did:key`
+encoding, and sign/verify (interoperable with any standard implementation; see `src/crypto.ts` + passing
+`src/crypto.test.ts`). What's a *stand-in* is the surrounding service: in-memory storage, opaque tokens, and
+**custodial private-key storage** (a real KMS never returns/holds your private key). Two in-memory validator
+shims are documented in `src/spec.ts` (strip type-less `nullable`; merge the two specs into one document).
+
+**Verified end-to-end (Phase 3):** `checkAvailability → account/create (201) → address/resolve → account/get
+→ account/keys/search → keys/sign → verify` — a signature over the real message verifies **true**, and over a
+tampered message verifies **false**, using the public key recovered from the account's `did:key`.
+
 ## What this means for the plan
 
 - **Boxes 2 & 3** (Users, Token managers / Application API) — **covered by real code** (`finternet-api`).
