@@ -80,6 +80,7 @@ button.ghost { background: transparent; color: var(--muted); border: 1px solid v
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86rem; }
 .break { word-break: break-all; }
 .tag { font-size: 0.7rem; color: var(--accent); border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.5rem; }
+.tag.warn { color: #e3b341; border-color: rgba(227, 179, 65, 0.4); background: rgba(227, 179, 65, 0.1); }
 
 .error { color: var(--bad); font-size: 0.86rem; margin: 0.75rem 0 0; }
 

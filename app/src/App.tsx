@@ -7,6 +7,8 @@ import type {
   EntityType,
   CredentialToken,
   VerificationResult,
+  TokenClass,
+  TokenInstance,
 } from './lib/types.js';
 
 interface Session {
@@ -23,11 +25,11 @@ export default function App() {
       <header>
         <h1>Wayfinder</h1>
         <p className="sub">
-          Phase 3 · <strong>Identity &amp; Keys</strong> and Phase 4 · <strong>Trust &amp; Credentials</strong> —
-          create a real Finternet account, sign and verify a message, then have a trust provider issue you a
-          verifiable credential and watch verification fail once it's revoked. Real Ed25519 /{' '}
-          <code>did:key</code> cryptography; credential data validated against the vendored{' '}
-          <code>credential.schema.json</code>.
+          Phase 3 · <strong>Identity &amp; Keys</strong>, Phase 4 · <strong>Trust &amp; Credentials</strong>,
+          Phase 5 · <strong>Tokens</strong> — create a real Finternet account, sign/verify a message, get a
+          verifiable credential (and watch it fail once revoked), then mint a token whose creation is{' '}
+          <em>gated on that credential</em>. Real Ed25519 / <code>did:key</code> crypto; credential and token
+          data validated against the vendored <code>credential.schema.json</code> / <code>token.schema.json</code>.
         </p>
       </header>
 
@@ -38,6 +40,7 @@ export default function App() {
           <Identity session={session} />
           <SignAndVerify session={session} />
           <Credentials session={session} />
+          <Tokens session={session} />
           <button className="ghost" onClick={() => setSession(null)}>
             ← Start over with a new account
           </button>
@@ -47,7 +50,8 @@ export default function App() {
       <footer>
         <span>
           A DID is a public key you control · a signature proves who authorized what · a credential is a
-          signed claim about you that anyone can verify — and an issuer can revoke.
+          signed claim about you · a token is an asset that carries its own rules — and won't be minted
+          unless those rules are satisfied.
         </span>
       </footer>
     </div>
@@ -322,6 +326,105 @@ function Credentials({ session }: { session: Session }) {
         </>
       )}
       {error && <p className="error">{error}</p>}
+    </section>
+  );
+}
+
+function Tokens({ session }: { session: Session }) {
+  const { token, profile } = session;
+  const [tokenClass, setTokenClass] = useState<TokenClass | null>(null);
+  const [minted, setMinted] = useState<TokenInstance | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [blocked, setBlocked] = useState<string | null>(null); // compliance-hook refusal
+  const [error, setError] = useState<string | null>(null);
+
+  // What are we minting, and does it require KYC? Fetch the class once.
+  useEffect(() => {
+    api.getTokenClass('PROP-DEED').then(setTokenClass).catch(() => setTokenClass(null));
+  }, []);
+
+  async function mint() {
+    setBusy(true);
+    setBlocked(null);
+    setError(null);
+    try {
+      const accepted = await api.mintToken(token, {
+        tokenClass: 'PROP-DEED',
+        initialSupply: '1',
+        metadata: { name: 'Deed to 123 Main St' },
+        data: { assetId: 'PROP-2026-001', propertyAddress: '123 Main St' },
+      });
+      const tok = await api.getToken(token, accepted.tokenId);
+      setMinted(tok);
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'COMPLIANCE_CHECK_FAILED') {
+        // This is the whole point of the phase: the mint was refused *at creation*.
+        setMinted(null);
+        setBlocked(e.message);
+      } else {
+        setError(e instanceof ApiError ? `${e.code}: ${e.message}` : (e as Error).message);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const owner = minted?.identities.find((i) => i.type === 'owner')?.id;
+
+  return (
+    <section className="card">
+      <h2>6 · Mint a token (with a compliance hook)</h2>
+      <p className="hint">
+        A token is an asset represented as a self-describing object (the UNITS 5-section model:
+        metadata · data · claims · identities · state). This token class is <em>KYC-gated</em>: the token
+        manager <strong>refuses to mint</strong> unless you currently hold a valid credential from step 5 —
+        the paper's “regulation at the flow level.” Revoke your credential above and minting stops working.
+      </p>
+      {tokenClass && (
+        <>
+          <Row label="Token class">
+            <span className="mono">{tokenClass.tokenClass}</span>
+            <span className="tag">{tokenClass.tokenStandard}</span>
+            {tokenClass.metadata.requiresKYC && <span className="tag warn">requires KYC</span>}
+          </Row>
+          <Row label="Name">
+            <span>{tokenClass.name}</span>
+          </Row>
+        </>
+      )}
+
+      <button onClick={mint} disabled={busy}>
+        {busy ? 'Minting…' : minted ? 'Mint another' : 'Mint property deed'}
+      </button>
+
+      {blocked && (
+        <div className="verdict bad" style={{ marginTop: '1rem' }}>
+          ✗ Mint refused at creation — {blocked}
+        </div>
+      )}
+      {error && <p className="error">{error}</p>}
+
+      {minted && (
+        <>
+          <div className="verdict ok" style={{ marginTop: '1rem' }}>
+            ✓ Token minted — a compliant asset now exists on the ledger.
+          </div>
+          <Row label="Token id">
+            <span className="mono break">{minted.id}</span>
+          </Row>
+          <Row label="Class / std">
+            <span className="mono">{minted.metadata.tokenClass}</span>
+            <span className="tag">{minted.metadata.fungibility}</span>
+          </Row>
+          <Row label="Owner (you)">
+            <span className="mono break">{owner ?? profile.did}</span>
+          </Row>
+          <Row label="State">
+            <span className="mono">{minted.state.status}</span>
+            <span className="tag">supply {minted.state.supply?.totalSupply ?? '—'}</span>
+          </Row>
+        </>
+      )}
     </section>
   );
 }

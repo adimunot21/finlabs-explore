@@ -174,7 +174,7 @@ issue → verify → revoke → verification fails. — Paper §5.4.3 · Spec: `
 
 ---
 
-## F. Assets as tokens — the UNITS model (Phase 5 territory)
+## F. Assets as tokens — the UNITS model (Phase 5 — done, see [`05_tokens.md`](05_tokens.md))
 
 **Token.** A programmable digital representation of a claim on an asset, with a unique identifier for
 traceability. In the spec, a `Token` is a *lightweight instance* (~10 fields): `tokenId`, a `tokenClassId`
@@ -349,5 +349,8 @@ Phase 3 done — DID, key pair, digital signature, and addressing are now backed
 against the real spec shapes.
 Phase 4 done — a stand-in trust provider issues a real Ed25519-signed **verifiable credential** bound to the
 holder's DID, verification runs four independent checks (schema/signature/revocation/expiry), and revocation
-makes it fail while the signature stays valid ([`04_credentials.md`](04_credentials.md)). Next update:
-Phase 5 (tokens & token classes).*
+makes it fail while the signature stays valid ([`04_credentials.md`](04_credentials.md)).
+Phase 5 done — a **token** (UNITS 5-section model) is minted from a KYC-gated **token class**, with the
+**compliance hook** enforced at mint time: minting is refused unless the owner holds a valid credential, so a
+non-compliant asset can't be created ([`05_tokens.md`](05_tokens.md)). Next update: Phase 6 (movement,
+transactions & proof chains).*

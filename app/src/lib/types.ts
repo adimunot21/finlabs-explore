@@ -76,3 +76,40 @@ export interface VerificationResult {
   issuer: string;
   reason?: string;
 }
+
+// ---- tokens (STAND-IN endpoints; instance shape is the real token.schema.json) ----
+
+export interface TokenClass {
+  tokenClass: string;
+  tokenStandard: string;
+  name: string;
+  description?: string;
+  status: string;
+  metadata: { fungible: boolean; requiresKYC?: boolean; symbol?: string; [k: string]: unknown };
+}
+
+export interface MintAccepted {
+  txId: string;
+  tokenId: string;
+  status: string;
+  message: string;
+}
+
+// The UNITS 5-section token — we read a handful of fields for display; the server is authoritative.
+export interface TokenInstance {
+  id: string;
+  '@type'?: string;
+  metadata: {
+    tokenStandard: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+    fungibility: string;
+    tokenClass: string;
+    status: string;
+    [k: string]: unknown;
+  };
+  data?: Record<string, unknown>;
+  identities: { id: string; type: string }[];
+  state: { status: string; supply?: { totalSupply?: string; circulatingSupply?: string }; [k: string]: unknown };
+}

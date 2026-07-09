@@ -48,8 +48,11 @@ logged and clearly marked as such.
 - **Phase 4** (Trust & credentials) — done. A stand-in trust provider issues a real Ed25519-signed
   verifiable credential bound to your DID; verification runs four independent checks and revocation makes it
   fail while the signature stays valid. See [`docs/04_credentials.md`](docs/04_credentials.md).
+- **Phase 5** (Assets: tokens) — done. A UNITS token is minted from a KYC-gated token class, with the
+  compliance hook enforced at mint time — minting is refused unless the owner holds a valid credential, so a
+  non-compliant asset can't exist. See [`docs/05_tokens.md`](docs/05_tokens.md).
 
-## Running it (Phases 3–4)
+## Running it (Phases 3–5)
 
 ```bash
 cd standin-service && npm install && npm start   # identity backend on :8081

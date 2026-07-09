@@ -12,6 +12,9 @@ import type {
   IssuerInfo,
   CredentialToken,
   VerificationResult,
+  TokenClass,
+  MintAccepted,
+  TokenInstance,
 } from './types.js';
 
 const BASE = '/api';
@@ -49,7 +52,8 @@ async function post<T>(path: string, id: string, payload: unknown, token?: strin
   } catch {
     throw new ApiError('BAD_RESPONSE', `Non-JSON response (HTTP ${res.status})`, res.status);
   }
-  if (body?.context?.status !== 'successful') {
+  // "successful" for sync calls; "accepted" for async ones (e.g. token/mint returns 202).
+  if (body?.context?.status !== 'successful' && body?.context?.status !== 'accepted') {
     throw new ApiError(
       body?.context?.error?.code ?? `HTTP_${res.status}`,
       body?.context?.error?.message ?? 'Request failed',
@@ -85,4 +89,20 @@ export const api = {
 
   revokeCredential: (credentialId: string) =>
     post<{ id: string; status: string }>('/v1/credentials/revoke', 'credentials.revoke', { credentialId }),
+
+  // ---- tokens (STAND-IN endpoints) ----
+  getTokenClass: (tokenClass: string) =>
+    post<TokenClass>('/v1/registry/tokenclasses/get', 'registry.tokenclasses.get', { tokenClass }),
+
+  // Async: returns 202 "accepted" with the minted tokenId (resolved synchronously by the stand-in).
+  mintToken: (
+    token: string,
+    payload: { tokenClass: string; initialSupply: string; metadata?: Record<string, unknown>; data?: Record<string, unknown> },
+  ) => post<MintAccepted>('/v1/token/mint', 'token.mint', payload, token),
+
+  getToken: (token: string, tokenId: string) =>
+    post<TokenInstance>('/v1/token/get', 'token.get', { tokenId }, token),
+
+  searchTokens: (token: string) =>
+    post<{ tokens: TokenInstance[]; pagination: { total: number } }>('/v1/token/search', 'token.search', {}, token),
 };
