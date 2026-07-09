@@ -70,7 +70,33 @@ export function loadMergedSpec(paths: string[]): Doc {
 
   stripTypelessNullable(merged);
   relaxAcceptedStatus(merged);
+  addProofPath(merged);
   return merged;
+}
+
+// Shim #4: bind the proof endpoint. The token spec DEFINES the proof components
+// (ApiRequest_GetProofRequest, ApiResponse_ProofDetails, ProofDetails with the Merkle
+// fields) but ships NO path that uses them — yet VerificationInfo.leafDataEndpoint references
+// "/v1/transaction/proof/...", so a proof path is clearly intended. We add the obvious binding
+// in-memory so OUR proof endpoint is validated against THEIR real ProofDetails schema.
+function addProofPath(doc: Doc): void {
+  const has = (name: string) => Boolean(doc.components?.schemas?.[name]);
+  if (!has('ApiRequest_GetProofRequest') || !has('ApiResponse_ProofDetails')) return;
+  doc.paths['/v1/transaction/proof'] = {
+    post: {
+      summary: 'Get Merkle inclusion proof for a transaction (binding added in-memory; see spec.ts).',
+      requestBody: {
+        required: true,
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiRequest_GetProofRequest' } } },
+      },
+      responses: {
+        '200': {
+          description: 'Merkle proof details',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse_ProofDetails' } } },
+        },
+      },
+    },
+  };
 }
 
 /** Union "accepted" into ResponseContext.status.enum (see shim #3 above). */

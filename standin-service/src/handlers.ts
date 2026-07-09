@@ -7,6 +7,7 @@ import * as store from './store.js';
 import * as credentials from './credentials.js';
 import * as tokenclasses from './tokenclasses.js';
 import * as tokens from './tokens.js';
+import * as ledger from './ledger.js';
 import { randomUUID } from 'node:crypto';
 import { signHashHex } from './crypto.js';
 
@@ -237,6 +238,70 @@ export function tokenSearch(req: Request, res: Response): void {
   if (!account) return;
   const owned = tokens.tokensForOwner(account.did);
   ok(res, context, { tokens: owned, pagination: { total: owned.length, limit: 50, offset: 0 } });
+}
+
+// ---- movement: transfer, transaction log, proof (Phase 6) ----
+
+// POST /v1/token/transact (payload: TransactRequest {operation, tokenId, to, amount?})
+// Phase 6 implements `transfer` (movement); other operations are future phases.
+export function tokenTransact(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<{
+    operation: string;
+    tokenId: string;
+    to?: string;
+    amount?: string;
+  }>;
+  const account = tokenAccount(req, res);
+  if (!account) return;
+
+  if (payload.operation !== 'transfer') {
+    return fail(res, context, 400, 'UNSUPPORTED_OPERATION', `Only 'transfer' is implemented; got '${payload.operation}'`);
+  }
+  if (!payload.to) {
+    return fail(res, context, 400, 'INVALID_REQUEST', "transfer requires payload.to (recipient address)");
+  }
+  const recipient = store.getByAddress(payload.to);
+  if (!recipient) {
+    return fail(res, context, 404, 'RECIPIENT_NOT_FOUND', `No account for address '${payload.to}'`);
+  }
+
+  const result = tokens.transferToken({ tokenId: payload.tokenId, fromDid: account.did, toDid: recipient.did });
+  if (!result.ok) {
+    const http = result.code === 'TOKEN_NOT_FOUND' ? 404 : 403;
+    return fail(res, context, http, result.code, result.message);
+  }
+
+  accepted(
+    res,
+    context,
+    { txId: result.txId, status: 'submitted', message: `Transferred token to ${payload.to}` },
+    randomUUID(), // context.transactionId is validated as format:uuid — use a bare uuid
+  );
+}
+
+// POST /v1/transaction/get (payload: {txId}) -> TransactionLog
+export function transactionGet(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<{ txId: string }>;
+  const log = ledger.getTransaction(payload.txId);
+  if (!log) return fail(res, context, 404, 'RESOURCE_NOT_FOUND', `No transaction '${payload.txId}'`);
+  ok(res, context, log);
+}
+
+// POST /v1/token/transactions (payload: {filters:{tokenId}}) -> TokenTransactionList
+export function tokenTransactionsList(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<{ filters?: { tokenId?: string }; tokenId?: string }>;
+  const tokenId = payload.filters?.tokenId ?? payload.tokenId;
+  if (!tokenId) return fail(res, context, 400, 'INVALID_REQUEST', 'filters.tokenId is required');
+  const list = ledger.tokenTransactions(tokenId);
+  ok(res, context, { tokenTransactions: list, pagination: { total: list.length, limit: 100, offset: 0 } });
+}
+
+// POST /v1/transaction/proof (payload: {txId}) -> ProofDetails  (path injected in spec.ts)
+export function transactionProof(req: Request, res: Response): void {
+  const { context, payload } = req.body as RequestEnvelope<{ txId: string }>;
+  const proof = ledger.getProof(payload.txId);
+  if (!proof) return fail(res, context, 404, 'RESOURCE_NOT_FOUND', `No proof for '${payload.txId}'`);
+  ok(res, context, proof);
 }
 
 // Resolve the account behind context.authorization, or send 401 and return undefined.

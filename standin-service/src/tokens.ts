@@ -18,6 +18,7 @@ import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import { getTokenClass } from './tokenclasses.js';
 import { credentialsForHolder, verifyCredential, issuerInfo } from './credentials.js';
+import * as ledger from './ledger.js';
 
 // ---- validator built from the REAL vendored JSON Schema (draft-07) ----
 const here = dirname(fileURLToPath(import.meta.url));
@@ -52,6 +53,7 @@ export interface TokenInstance {
     status: 'active' | 'frozen' | 'redeemed' | 'burned' | 'expired';
     effectiveFrom: string;
     supply: { totalSupply: string; circulatingSupply: string };
+    stateCommitment?: string; // set by the ledger; head of this token's hash chain
   };
 }
 
@@ -133,6 +135,11 @@ export function mintToken(input: MintInput): MintResult {
   const ids = ownerToIds.get(input.ownerDid) ?? new Set<string>();
   ids.add(token.id);
   ownerToIds.set(input.ownerDid, ids);
+
+  // Record the genesis (mint) transaction on the ledger; this sets the token's opening
+  // state commitment — the head of its tamper-evident hash chain.
+  const { stateCommitment } = ledger.recordMint({ tokenId: token.id, ownerDid: input.ownerDid });
+  token.state.stateCommitment = stateCommitment;
   return { ok: true, token };
 }
 
@@ -144,4 +151,38 @@ export function tokensForOwner(ownerDid: string): TokenInstance[] {
   const ids = ownerToIds.get(ownerDid);
   if (!ids) return [];
   return [...ids].map((id) => byId.get(id)).filter((t): t is TokenInstance => Boolean(t));
+}
+
+export type TransferResult =
+  | { ok: true; txId: string; token: TokenInstance }
+  | { ok: false; code: 'TOKEN_NOT_FOUND' | 'NOT_OWNER'; message: string };
+
+// Transfer ownership of a (non-fungible) token. Changes the `owner` identity, chains a new
+// state commitment via the ledger, and re-indexes ownership.
+export function transferToken(input: { tokenId: string; fromDid: string; toDid: string }): TransferResult {
+  const token = byId.get(input.tokenId);
+  if (!token) return { ok: false, code: 'TOKEN_NOT_FOUND', message: `No token '${input.tokenId}'` };
+
+  const ownerIdent = token.identities.find((i) => i.type === 'owner');
+  if (!ownerIdent || ownerIdent.id !== input.fromDid) {
+    return { ok: false, code: 'NOT_OWNER', message: `Caller does not own token '${input.tokenId}'` };
+  }
+
+  const rec = ledger.recordTransfer({
+    tokenId: token.id,
+    fromDid: input.fromDid,
+    toDid: input.toDid,
+    previousCommitment: token.state.stateCommitment ?? '',
+  });
+
+  ownerIdent.id = input.toDid; // ownership changes hands
+  token.state.stateCommitment = rec.stateCommitment;
+  token.metadata.updatedAt = new Date().toISOString();
+
+  ownerToIds.get(input.fromDid)?.delete(token.id);
+  const toSet = ownerToIds.get(input.toDid) ?? new Set<string>();
+  toSet.add(token.id);
+  ownerToIds.set(input.toDid, toSet);
+
+  return { ok: true, txId: rec.txId, token };
 }

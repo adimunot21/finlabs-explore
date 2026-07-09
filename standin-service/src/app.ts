@@ -55,6 +55,12 @@ export function createApp(): express.Express {
   app.post('/v1/token/get', h.tokenGet);
   app.post('/v1/token/search', h.tokenSearch);
 
+  // movement (Phase 6): transfer + transaction log + Merkle proof
+  app.post('/v1/token/transact', h.tokenTransact);
+  app.post('/v1/transaction/get', h.transactionGet);
+  app.post('/v1/token/transactions', h.tokenTransactionsList);
+  app.post('/v1/transaction/proof', h.transactionProof);
+
   // Turn express-openapi-validator errors (and anything else) into a spec-shaped
   // error envelope instead of the library's default HTML/JSON.
   app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
