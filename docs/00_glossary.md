@@ -344,4 +344,6 @@ principle. — Spec: `schemas/README.md`, all `schemas/**/context.jsonld`
 Unified Ledger provider does not build. Details in [`01_reference_code_status.md`](01_reference_code_status.md).
 Phase 2 done — every spec file walked through in [`02_spec_walkthrough.md`](02_spec_walkthrough.md), with the
 real field names behind each term and the spec-vs-reference-vs-paper divergences logged.
-Next update: Phase 3 will add identity/keys terms as we wire accounts against these shapes.*
+Phase 3 done — DID, key pair, digital signature, and addressing are now backed by working code
+([`03_identity_and_keys.md`](03_identity_and_keys.md)): real Ed25519/`did:key`, create→sign→verify, all
+against the real spec shapes. Next update: Phase 4 (credentials/attestations, registry).*

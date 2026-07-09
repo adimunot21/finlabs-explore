@@ -42,6 +42,15 @@ logged and clearly marked as such.
   provider does not build. See [`docs/01_reference_code_status.md`](docs/01_reference_code_status.md).
 - **Phase 2** (Read the specs, file by file) — done. Plain-English walkthrough of all 8 API interfaces and
   6 schema domains in [`docs/02_spec_walkthrough.md`](docs/02_spec_walkthrough.md).
+- **Phase 3** (Identity & keys) — done. `standin-service/` (spec-validated) + `app/` (React) do a real
+  create-account → DID → sign → verify flow with genuine Ed25519/`did:key` crypto. See
+  [`docs/03_identity_and_keys.md`](docs/03_identity_and_keys.md).
 
-No application code of our own yet (`app/` starts in Phase 3). Building the reference code needs Rust
-(`rustup`); it's compiled to a git-ignored `target/`.
+## Running it (Phase 3)
+
+```bash
+cd standin-service && npm install && npm start   # identity backend on :8081
+cd app && npm install && npm run dev             # Wayfinder UI on :5173 (proxies /api -> :8081)
+```
+
+Building the Rust reference code needs Rust (`rustup`); it compiles to a git-ignored `target/`.
