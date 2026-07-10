@@ -87,14 +87,23 @@ function hashPair(left: string, right: string): string {
 
 // ---- state-commitment chain ----
 // The new commitment folds in the previous one, so the per-token history is tamper-evident.
+// It also folds in a digest of the token's `claims` — the spec's StateReference recipe lists
+// `claims` among the inputs — so stripping or swapping the credential embedded in a token
+// changes its commitment and breaks the chain. That is what "chained together" buys you.
 function nextCommitment(input: {
   previousCommitment: string;
   txId: string;
   tokenId: string;
   ownerDid: string;
+  claimsDigest: string;
   timestamp: string;
 }): string {
   return sha256Hex(canonical(input));
+}
+
+/** Digest of a token's claims[] — folded into every state commitment (see nextCommitment). */
+export function claimsDigest(claims: unknown[] | undefined): string {
+  return sha256Hex(canonical(claims ?? []));
 }
 
 function addLeaf(txId: string, leafData: unknown): { leafHash: string; leafIndex: number } {
@@ -139,7 +148,7 @@ function buildLog(txId: string, initiator: string, tokenTx: TokenTransaction): T
 // ---- public API ----
 
 /** Record the genesis (mint) transaction for a token and return its opening state commitment. */
-export function recordMint(input: { tokenId: string; ownerDid: string }): {
+export function recordMint(input: { tokenId: string; ownerDid: string; claimsDigest: string }): {
   txId: string;
   stateCommitment: string;
 } {
@@ -150,6 +159,7 @@ export function recordMint(input: { tokenId: string; ownerDid: string }): {
     txId,
     tokenId: input.tokenId,
     ownerDid: input.ownerDid,
+    claimsDigest: input.claimsDigest,
     timestamp: now,
   });
   const tokenTx: TokenTransaction = {
@@ -180,6 +190,7 @@ export function recordTransfer(input: {
   fromDid: string;
   toDid: string;
   previousCommitment: string;
+  claimsDigest: string;
 }): { txId: string; stateCommitment: string } {
   const txId = randomUUID();
   const now = new Date().toISOString();
@@ -188,6 +199,7 @@ export function recordTransfer(input: {
     txId,
     tokenId: input.tokenId,
     ownerDid: input.toDid,
+    claimsDigest: input.claimsDigest,
     timestamp: now,
   });
   const fullTxId = `urn:uuid:tx-${txId}`;

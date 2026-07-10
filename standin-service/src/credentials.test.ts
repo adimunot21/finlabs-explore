@@ -7,7 +7,7 @@ describe('verifiable credentials (real issuer signature, real schema)', () => {
   it('issues a schema-valid, signed KYC credential to a holder DID', () => {
     const cred = issueCredential({ holderDid: HOLDER, subject: { fullName: 'Alice Example', nationality: 'IN' } });
     expect(cred['@type']).toBe('CredentialToken');
-    expect(cred.claims[0]?.issuer.id).toBe(issuerInfo.did);
+    expect(cred.claims[0]?.issuer).toBe(issuerInfo.did); // string DID — embeddable as a token Claim
     expect(cred.claims[0]?.credentialSubject.id).toBe(HOLDER);
     expect(cred.claims[0]?.proof?.type).toBe('Ed25519Signature2020');
 

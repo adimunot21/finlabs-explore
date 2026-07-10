@@ -49,11 +49,15 @@ interface VcProof {
   proofPurpose: string;
   proofValue: string;
 }
-interface Vc {
+export interface Vc {
   id: string;
   '@context': string[];
   type: string[];
-  issuer: { id: string; name: string };
+  // A string DID, NOT an object. credential.schema.json allows `oneOf[string(uri), object{id,name}]`,
+  // and the string form is exactly what token.schema.json's `Claim.issuer` requires. Choosing it lets
+  // the SAME signed credential be embedded verbatim into a token's `claims[]` — one signature, valid
+  // in both places. (See docs/05 "the token carries its own trust".)
+  issuer: string;
   issuanceDate: string;
   validFrom: string;
   validUntil: string;
@@ -118,7 +122,7 @@ export function issueCredential(input: IssueInput): CredentialToken {
       'https://finternet-io.github.io/specs/schemas/credential/v1/context.jsonld',
     ],
     type: ['VerifiableCredential', 'KYCCredential', 'IdentityCredential'],
-    issuer: { id: issuer.did, name: issuer.name },
+    issuer: issuer.did,
     issuanceDate: now,
     validFrom: now,
     validUntil: oneYear,
@@ -192,14 +196,7 @@ export function verifyCredential(credential: CredentialToken): VerificationResul
 
   checks.schemaValid = Boolean(validateCredential(credential));
 
-  if (vc?.proof) {
-    try {
-      const pub = issuerPublicKeyFor(vc.proof.verificationMethod);
-      checks.signatureValid = verifyHashHex(pub, vcSigningHash(vc), vc.proof.proofValue);
-    } catch {
-      checks.signatureValid = false;
-    }
-  }
+  if (vc) checks.signatureValid = verifyVcSignature(vc);
 
   // Revocation is authoritative from our store (a real system uses a status list).
   const stored = store.get(credential.id);
@@ -220,7 +217,29 @@ export function verifyCredential(credential: CredentialToken): VerificationResul
           ? 'credential has expired'
           : 'credential failed schema validation';
 
-  return { valid, checks, issuer: vc?.issuer?.id ?? issuer.did, reason };
+  return { valid, checks, issuer: vc?.issuer ?? issuer.did, reason };
+}
+
+/**
+ * Verify ONLY the issuer's signature over a verifiable credential — no store lookup, no revocation
+ * check. This is what a third party can do offline with nothing but the credential itself: recover the
+ * issuer's public key from the DID inside `proof.verificationMethod`, and check the signature over the
+ * credential minus its proof. Used both by verifyCredential() and by anyone verifying a credential
+ * embedded in a token's claims[].
+ */
+export function verifyVcSignature(vc: Vc): boolean {
+  if (!vc.proof) return false;
+  try {
+    const pub = issuerPublicKeyFor(vc.proof.verificationMethod);
+    return verifyHashHex(pub, vcSigningHash(vc), vc.proof.proofValue);
+  } catch {
+    return false;
+  }
+}
+
+/** The first currently-valid credential held by this DID — i.e. what the compliance hook accepts. */
+export function validCredentialFor(holderDid: string): CredentialToken | undefined {
+  return credentialsForHolder(holderDid).find((c) => verifyCredential(c).valid);
 }
 
 export function getCredential(id: string): CredentialToken | undefined {

@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import { getTokenClass } from './tokenclasses.js';
-import { credentialsForHolder, verifyCredential, issuerInfo } from './credentials.js';
+import { validCredentialFor, issuerInfo, type Vc } from './credentials.js';
 import * as ledger from './ledger.js';
 
 // ---- validator built from the REAL vendored JSON Schema (draft-07) ----
@@ -48,6 +48,10 @@ export interface TokenInstance {
     updatedAt: string;
   };
   data: Record<string, unknown>;
+  // The verifiable credentials/attestations this token carries. The credential that satisfied the
+  // compliance hook is embedded here VERBATIM (byte-for-byte as the issuer signed it), so the token
+  // is self-sufficient: a recipient verifies its compliance offline, without calling the issuer.
+  claims?: Vc[];
   identities: { id: string; type: string }[];
   state: {
     status: 'active' | 'frozen' | 'redeemed' | 'burned' | 'expired';
@@ -81,10 +85,13 @@ export function mintToken(input: MintInput): MintResult {
   // ---- THE COMPLIANCE HOOK (regulation at the flow level, paper §4.4) ----
   // If the class is KYC-gated, the owner must currently hold at least one VALID credential.
   // "Valid" reuses Phase 4 exactly: schema-valid, issuer-signed, not revoked, not expired.
+  // We keep the credential that authorized the mint, not just a yes/no — it gets embedded into the
+  // token's claims[] below, so the token carries the proof of its own compliance ("trusted proof
+  // chain", paper §5.4.1: tokens + credentials + attestations chained together, made portable).
+  let complianceClaim: Vc | undefined;
   if (tc.metadata.requiresKYC) {
-    const held = credentialsForHolder(input.ownerDid);
-    const hasValidCredential = held.some((c) => verifyCredential(c).valid);
-    if (!hasValidCredential) {
+    const credential = validCredentialFor(input.ownerDid);
+    if (!credential) {
       return {
         ok: false,
         code: 'COMPLIANCE_CHECK_FAILED',
@@ -93,6 +100,7 @@ export function mintToken(input: MintInput): MintResult {
           `holder ${input.ownerDid} holds none. Issue (and don't revoke) a credential first.`,
       };
     }
+    complianceClaim = credential.claims[0];
   }
 
   const now = new Date().toISOString();
@@ -115,6 +123,9 @@ export function mintToken(input: MintInput): MintResult {
       updatedAt: now,
     },
     data: input.data ?? {},
+    // Embedded verbatim: adding or removing a single field would change the canonical form the
+    // issuer signed, and the signature would no longer verify.
+    ...(complianceClaim ? { claims: [complianceClaim] } : {}),
     identities: [
       { id: tc.identities[0]?.id ?? issuerInfo.did, type: 'issuer' },
       { id: input.ownerDid, type: 'owner' },
@@ -137,8 +148,13 @@ export function mintToken(input: MintInput): MintResult {
   ownerToIds.set(input.ownerDid, ids);
 
   // Record the genesis (mint) transaction on the ledger; this sets the token's opening
-  // state commitment — the head of its tamper-evident hash chain.
-  const { stateCommitment } = ledger.recordMint({ tokenId: token.id, ownerDid: input.ownerDid });
+  // state commitment — the head of its tamper-evident hash chain. The claims digest is folded in,
+  // so the embedded credential is part of what the chain commits to.
+  const { stateCommitment } = ledger.recordMint({
+    tokenId: token.id,
+    ownerDid: input.ownerDid,
+    claimsDigest: ledger.claimsDigest(token.claims),
+  });
   token.state.stateCommitment = stateCommitment;
   return { ok: true, token };
 }
@@ -173,6 +189,7 @@ export function transferToken(input: { tokenId: string; fromDid: string; toDid: 
     fromDid: input.fromDid,
     toDid: input.toDid,
     previousCommitment: token.state.stateCommitment ?? '',
+    claimsDigest: ledger.claimsDigest(token.claims), // the credential travels with the token
   });
 
   ownerIdent.id = input.toDid; // ownership changes hands

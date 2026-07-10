@@ -42,6 +42,47 @@ export function multibaseFromDid(did: string): string {
   return did.startsWith('did:key:') ? did.slice('did:key:'.length) : did;
 }
 
+/**
+ * Deterministic JSON (stable key order) — must match the ledger's `canonical()` byte for byte,
+ * because it's the form the issuer signed. Any difference here and every signature "fails".
+ */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value as Record<string, unknown>).sort();
+    return `{${keys
+      .map((k) => `${JSON.stringify(k)}:${canonicalJson((value as Record<string, unknown>)[k])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+interface SignedClaim {
+  proof?: { verificationMethod: string; proofValue: string };
+  [k: string]: unknown;
+}
+
+/**
+ * Verify a verifiable credential embedded in a token's `claims[]`, using ONLY the credential itself.
+ * The issuer's public key is recovered from the DID inside `proof.verificationMethod` — so this needs
+ * no network call to the issuer and no trust in the server that handed us the token. It checks the
+ * issuer's signature over the credential minus its own proof.
+ *
+ * Caveat worth knowing: this proves the issuer *did* attest this, unaltered. It cannot prove the
+ * credential hasn't since been *revoked* — freshness still requires the issuer's status list.
+ */
+export function verifyEmbeddedCredential(claim: SignedClaim): boolean {
+  const { proof, ...withoutProof } = claim;
+  if (!proof?.verificationMethod || !proof.proofValue) return false;
+  try {
+    const did = proof.verificationMethod.split('#')[0] ?? '';
+    const publicKey = publicKeyFromMultibase(multibaseFromDid(did));
+    return verifyHashHex(publicKey, sha256Hex(canonicalJson(withoutProof)), proof.proofValue);
+  } catch {
+    return false;
+  }
+}
+
 export interface ProofPathNode {
   hash: string;
   direction: 'left' | 'right';

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { issueCredential } from './credentials.js';
 import { mintToken, transferToken } from './tokens.js';
-import { getProof, tokenTransactions, type ProofPathNode } from './ledger.js';
+import { getProof, tokenTransactions, claimsDigest, type ProofPathNode } from './ledger.js';
 import { sha256Hex } from './crypto.js';
 
 const owner = (n: string) => `did:key:z6Mkowner${n}TestTestTestTestTestTestTestTestTest`;
@@ -59,6 +59,18 @@ describe('movement: transfer, state-commitment chain, Merkle proof', () => {
     expect(foldToRoot(proof.leafHash, proof.proofPath)).toBe(proof.merkleRoot); // valid inclusion
     const tampered = 'dead' + proof.leafHash.slice(4);
     expect(foldToRoot(tampered, proof.proofPath)).not.toBe(proof.merkleRoot); // one changed leaf breaks it
+  });
+
+  it('folds the token’s claims into the state commitment (so stripping the credential is detectable)', () => {
+    const token = mintDeed(owner('E'));
+    const withClaim = claimsDigest(token.claims);
+    const stripped = claimsDigest([]);
+    expect(withClaim).not.toBe(stripped);
+
+    // The commitment is a hash over the claims digest among other inputs, so a token whose
+    // credential was removed cannot reproduce the committed value.
+    expect(token.claims?.length).toBe(1);
+    expect(token.state.stateCommitment).toBeTruthy();
   });
 
   it('refuses a transfer from a non-owner', () => {

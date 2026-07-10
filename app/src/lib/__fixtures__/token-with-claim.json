@@ -1,0 +1,83 @@
+{
+  "@context": "https://finternet-io.github.io/specs/schemas/token/v1/context.jsonld",
+  "@type": "Token",
+  "id": "urn:uuid:token-f4333ddf-c2e5-41d8-bf32-d6e438bac94a",
+  "metadata": {
+    "tokenStandard": "UNITS-NFT",
+    "name": "Property Deed",
+    "symbol": "DEED",
+    "decimals": 0,
+    "fungibility": "nonFungible",
+    "tokenClass": "PROP-DEED",
+    "status": "active",
+    "flags": {
+      "transferable": true,
+      "transactable": true,
+      "locked": false,
+      "revocable": false
+    },
+    "createdAt": "2026-07-09T16:25:57.303Z",
+    "updatedAt": "2026-07-09T16:25:57.303Z"
+  },
+  "data": {},
+  "claims": [
+    {
+      "id": "urn:uuid:vc-5287c48c-12c1-453f-8b25-5a036cefc085",
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://finternet-io.github.io/specs/schemas/credential/v1/context.jsonld"
+      ],
+      "type": [
+        "VerifiableCredential",
+        "KYCCredential",
+        "IdentityCredential"
+      ],
+      "issuer": "did:key:z6MkhaVq4j1fKrtN8c3tDNny4ce7NG5enoajDnVVeMpmHXMz",
+      "issuanceDate": "2026-07-09T16:25:57.286Z",
+      "validFrom": "2026-07-09T16:25:57.286Z",
+      "validUntil": "2027-07-09T16:25:57.286Z",
+      "credentialSubject": {
+        "id": "did:key:z6MkojqkpGox8R3AENJ6G44nowjrv5bL2DJd6auJRPPQCk8M",
+        "fullName": "Fixture User",
+        "nationality": "IN"
+      },
+      "credentialStatus": {
+        "id": "urn:finternet:standin:status:urn:uuid:cred-5f600610-a242-47eb-8377-8d7d523db9e0",
+        "type": "StatusList2021Entry",
+        "statusPurpose": "revocation",
+        "statusListIndex": "0",
+        "statusListCredential": "urn:finternet:standin:status-list"
+      },
+      "credentialSchema": {
+        "id": "https://finternet-io.github.io/specs/schemas/credential/v1/credential.schema.json",
+        "type": "JsonSchema"
+      },
+      "proof": {
+        "type": "Ed25519Signature2020",
+        "created": "2026-07-09T16:25:57.286Z",
+        "verificationMethod": "did:key:z6MkhaVq4j1fKrtN8c3tDNny4ce7NG5enoajDnVVeMpmHXMz#key-1",
+        "proofPurpose": "assertionMethod",
+        "proofValue": "bad3023e09b7ad75d50097e1cd8351fdbb9c5ecb8f1fc16d4432d2d70a8c0dc99f34bfef80c3d899f7404d69a0f4f8cd071c593ebac928baf5a2ce3a20680103"
+      }
+    }
+  ],
+  "identities": [
+    {
+      "id": "did:key:z6MkhaVq4j1fKrtN8c3tDNny4ce7NG5enoajDnVVeMpmHXMz",
+      "type": "issuer"
+    },
+    {
+      "id": "did:key:z6MkojqkpGox8R3AENJ6G44nowjrv5bL2DJd6auJRPPQCk8M",
+      "type": "owner"
+    }
+  ],
+  "state": {
+    "status": "active",
+    "effectiveFrom": "2026-07-09T16:25:57.303Z",
+    "supply": {
+      "totalSupply": "1",
+      "circulatingSupply": "1"
+    },
+    "stateCommitment": "aa5ad280daf5c4b5cfbc1de9ad2e3acd27ff685ccd8f9a18e706dfa93952fb7a"
+  }
+}

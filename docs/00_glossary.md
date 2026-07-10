@@ -278,6 +278,10 @@ its **tokens + credentials + attestations + the metadata of every event get chai
 non-repudiable, *portable* bundle of proofs. Any subsequent actor can verify the whole history *without
 re-collecting and re-verifying everything*, and without trusting an intermediary. It's how trust and
 compliance travel with the asset (the paper links it to the Travel Rule / IVMS101 for cross-border AML).
+**In Wayfinder:** the credential that authorized a mint is embedded **verbatim** in `token.claims[0]`, its
+digest is folded into every `stateCommitment`, and the browser verifies the issuer's signature on it with no
+call to the issuer. Offline verification proves *the issuer attested this, unaltered* — **not** that it's
+still unrevoked. See [`05_tokens.md`](05_tokens.md) §5.
 **⚠ Note:** the paper describes proof chains conceptually; there is *no public wire-level UILP spec*, so any
 proof-chain wire format Wayfinder builds is our own reasonable interpretation, clearly labeled. — Paper §5.4.1, §5.4.6 · Spec: `schemas/transaction/**` (`ProofProfile`: zk-snark/merkle/tee/signature-bundle)
 
@@ -340,6 +344,11 @@ principle. — Spec: `schemas/README.md`, all `schemas/**/context.jsonld`
 - **Token vs. TokenClass:** paper says "token"; specs formally split **instance vs. template**. Follow the specs.
 - **Credentials as tokens:** specs implement VCs as **`CredentialToken`** (Token + W3C VC, soulbound); the
   paper treats credentials/attestations as their own thing. Same concept, tighter shape.
+- **Credential `issuer` shape (spec vs. spec):** `credential.schema.json` allows `oneOf[string(uri),
+  object{id,name}]`, but `token.schema.json`'s `Claim.issuer` accepts **only a string**. Issue credentials
+  with the **string** form and the same signed object is valid as both a credential and a token claim —
+  **one signature, valid in both places**. Use the object form and embedding requires flattening, which
+  changes the canonical form the issuer signed and **breaks the signature**.
 - **UILP / proof-chain wire format:** described in the paper, **not** specified as a wire protocol in the
   specs → the known stand-in risk for Phase 6.
 
@@ -366,4 +375,8 @@ Phase 8 done — the paper is walked section by section in
 [`09_how_this_maps_to_finternet.md`](09_how_this_maps_to_finternet.md), with an honest verdict per idea
 (demonstrated / partial / understood-but-not-built / stand-in) and a list of what we did **not** build.
 Corrections made there: UILP = **Unified Interledger Protocol**, and "flow-level regulation" (§3) is a
-different sentence from "safe by design" (§4.4). Only optional Phase 9 (fraud/anomaly detection) remains.*
+different sentence from "safe by design" (§4.4).
+**Trusted proof chain closed (post-Phase-8)** — the credential that authorizes a mint is now embedded verbatim
+in `token.claims[0]`, folded into the `stateCommitment`, and verified in the browser without contacting the
+issuer. The token carries its own compliance ([`05_tokens.md`](05_tokens.md) §5). Only optional Phase 9
+(fraud/anomaly detection) remains.*

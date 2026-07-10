@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ApiError } from './lib/client.js';
-import { sha256Hex, verifyHashHex, publicKeyFromMultibase, foldMerkleProof } from './lib/crypto.js';
+import {
+  sha256Hex,
+  verifyHashHex,
+  publicKeyFromMultibase,
+  foldMerkleProof,
+  verifyEmbeddedCredential,
+} from './lib/crypto.js';
 import type {
   AccountProfile,
   AccountKeyInfo,
@@ -27,6 +33,9 @@ const EMPTY_JOURNEY: Journey = { credential: false, token: false, transfer: fals
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [journey, setJourney] = useState<Journey>(EMPTY_JOURNEY);
+  // The id of the most recently minted token. Lives here, not in <Tokens>, because <Transfer> is a
+  // sibling: it needs to know that the wallet changed so it can re-ask the server what we now own.
+  const [mintedId, setMintedId] = useState<string | null>(null);
 
   // Stable, no-op-on-unchanged updater so child effects can report milestones without looping.
   const mark = useCallback((stage: Stage, value: boolean) => {
@@ -36,6 +45,7 @@ export default function App() {
   function reset() {
     setSession(null);
     setJourney(EMPTY_JOURNEY);
+    setMintedId(null);
   }
 
   return (
@@ -51,11 +61,12 @@ export default function App() {
       ) : (
         <>
           <SessionBar session={session} onReset={reset} />
+          <TheStory collapsed />
           <Identity session={session} />
           <SignAndVerify session={session} />
           <Credentials session={session} onStage={mark} />
-          <Tokens session={session} onStage={mark} />
-          <Transfer session={session} onStage={mark} />
+          <Tokens session={session} onStage={mark} onMinted={setMintedId} />
+          <Transfer session={session} onStage={mark} mintedId={mintedId} />
           {journey.transfer && <Done journey={journey} />}
           <button className="ghost" onClick={reset}>
             ← Start over with a new account
@@ -89,11 +100,11 @@ function Hero() {
   );
 }
 
-// Zero-context framing shown on the landing screen: what problem Finternet is attacking.
-function TheStory() {
-  return (
-    <section className="card story">
-      <h2>Why any of this?</h2>
+// Zero-context framing: what problem Finternet is attacking. Shown open on the landing screen, and
+// kept one click away afterwards (`collapsed`) — the "why" is most needed once you're mid-lifecycle.
+function TheStory({ collapsed = false }: { collapsed?: boolean }) {
+  const body = (
+    <>
       <p className="hint">
         Today your money is a row in your bank's private database. It can't move to another institution's
         ledger without intermediaries reconciling it, because the asset has no existence of its own. Finternet's
@@ -102,9 +113,31 @@ function TheStory() {
         verify what happened without trusting a middleman.
       </p>
       <p className="hint">
-        You'll build that stack from the bottom up, one real piece at a time. Start by creating your identity.
+        The eight steps below are <strong>one lifecycle</strong>, not eight demos:{' '}
+        <strong>identity → credential → token → transfer → proof</strong>. Each step's output is the next
+        step's input — your key signs the credential request, the credential unlocks the mint, the token is
+        what moves, and the transfer is what you prove.
       </p>
-    </section>
+    </>
+  );
+
+  if (!collapsed) {
+    return (
+      <section className="card story">
+        <h2>Why any of this?</h2>
+        {body}
+        <p className="hint">
+          You'll build that stack from the bottom up, one real piece at a time. Start by creating your identity.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <details className="card story">
+      <summary>Why any of this? — the problem Finternet is attacking</summary>
+      {body}
+    </details>
   );
 }
 
@@ -450,7 +483,15 @@ function Credentials({ session, onStage }: { session: Session; onStage: (s: Stag
   );
 }
 
-function Tokens({ session, onStage }: { session: Session; onStage: (s: Stage, v: boolean) => void }) {
+function Tokens({
+  session,
+  onStage,
+  onMinted,
+}: {
+  session: Session;
+  onStage: (s: Stage, v: boolean) => void;
+  onMinted: (tokenId: string) => void;
+}) {
   const { token, profile } = session;
   const [tokenClass, setTokenClass] = useState<TokenClass | null>(null);
   const [minted, setMinted] = useState<TokenInstance | null>(null);
@@ -481,9 +522,12 @@ function Tokens({ session, onStage }: { session: Session; onStage: (s: Stage, v:
       });
       const tok = await api.getToken(token, accepted.tokenId);
       setMinted(tok);
+      onMinted(tok.id); // tells <Transfer> the wallet changed, so it re-queries what we own
     } catch (e) {
       if (e instanceof ApiError && e.code === 'COMPLIANCE_CHECK_FAILED') {
-        // This is the whole point of the phase: the mint was refused *at creation*.
+        // This is the whole point of the phase: the mint was refused *at creation*. Note we do NOT
+        // touch `mintedId`: a refusal creates nothing, so the wallet — and any transfer already
+        // proved below — is untouched.
         setMinted(null);
         setBlocked(e.message);
       } else {
@@ -496,6 +540,14 @@ function Tokens({ session, onStage }: { session: Session; onStage: (s: Stage, v:
 
   const owner = minted?.identities.find((i) => i.type === 'owner')?.id;
 
+  // The credential that authorized the mint, carried inside the token. We verify the issuer's
+  // signature over it right here — no call to the issuer, no trust in the server.
+  const carriedClaim = minted?.claims?.[0];
+  const carriedClaimValid = useMemo(
+    () => (carriedClaim ? verifyEmbeddedCredential(carriedClaim) : null),
+    [carriedClaim],
+  );
+
   return (
     <section className="card">
       <h2>6 · Mint a token (with a compliance hook)</h2>
@@ -504,6 +556,8 @@ function Tokens({ session, onStage }: { session: Session; onStage: (s: Stage, v:
         metadata · data · claims · identities · state). This token class is <em>KYC-gated</em>: the token
         manager <strong>refuses to mint</strong> unless you currently hold a valid credential from step 5 —
         the paper's “regulation at the flow level.” Revoke your credential above and minting stops working.
+        And when it succeeds, the credential that authorized it is <strong>embedded into the token's
+        claims</strong>, so the asset carries the proof of its own compliance wherever it goes.
       </p>
       {tokenClass && (
         <>
@@ -548,13 +602,44 @@ function Tokens({ session, onStage }: { session: Session; onStage: (s: Stage, v:
             <span className="mono">{minted.state.status}</span>
             <span className="tag">supply {minted.state.supply?.totalSupply ?? '—'}</span>
           </Row>
+
+          {carriedClaim && (
+            <>
+              <Row label="Carries">
+                <span className="mono break">{carriedClaim.id}</span>
+                <span className="tag">embedded credential</span>
+              </Row>
+              <Row label="Attested by">
+                <span className="mono break">{carriedClaim.issuer}</span>
+              </Row>
+              <div className={`verdict ${carriedClaimValid ? 'ok' : 'bad'}`}>
+                {carriedClaimValid
+                  ? '✓ The token carries the very credential that authorized it — and your browser just verified the issuer’s signature on it, without contacting the issuer.'
+                  : '✗ The embedded credential’s signature does not verify.'}
+              </div>
+              <p className="hint" style={{ marginTop: '0.6rem' }}>
+                This is the paper’s <em>trusted proof chain</em>: the token is self-sufficient, so whoever
+                receives it can check its compliance offline. (Honest caveat: this proves the issuer{' '}
+                <em>did</em> attest it, unaltered — it can’t prove the credential hasn’t since been{' '}
+                <em>revoked</em>. Freshness still needs the issuer’s status list.)
+              </p>
+            </>
+          )}
         </>
       )}
     </section>
   );
 }
 
-function Transfer({ session, onStage }: { session: Session; onStage: (s: Stage, v: boolean) => void }) {
+function Transfer({
+  session,
+  onStage,
+  mintedId,
+}: {
+  session: Session;
+  onStage: (s: Stage, v: boolean) => void;
+  mintedId: string | null;
+}) {
   const { token } = session;
   const [held, setHeld] = useState<TokenInstance | null>(null);
   const [recipient, setRecipient] = useState('bob');
@@ -565,19 +650,29 @@ function Transfer({ session, onStage }: { session: Session; onStage: (s: Stage, 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Find a token this account owns to move. (After a transfer it's owned by someone else.)
-  async function refreshHeld() {
+  // Ask the *server* what we own rather than trusting the mint response — same question a real
+  // wallet asks, and it stays honest after the token leaves us. Prefer the token just minted, since
+  // an account may hold several.
+  const refreshHeld = useCallback(async () => {
     try {
       const { tokens } = await api.searchTokens(token);
-      setHeld(tokens[0] ?? null);
+      setHeld(tokens.find((t) => t.id === mintedId) ?? tokens[0] ?? null);
     } catch {
       setHeld(null);
     }
-  }
+  }, [token, mintedId]);
+
+  // Re-run on every mint: at mount the wallet is necessarily empty, so a mount-only fetch would
+  // leave this step permanently showing "no token". A new mint also retires the previous transfer's
+  // proof, so steps 7-8 restart cleanly for the new token.
   useEffect(() => {
-    refreshHeld();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setProof(null);
+    setLog(null);
+    setNewOwner(null);
+    setTampered(false);
+    setError(null);
+    void refreshHeld();
+  }, [refreshHeld]);
 
   // Browser-side proof check: re-fold leaf→root. Flip one nibble of the leaf to see it break.
   const verdict = useMemo(() => {

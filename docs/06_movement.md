@@ -43,8 +43,11 @@ needs its own auditable transition record. **Our code:** `standin-service/src/le
 ## 2. The state-commitment chain (tamper-evidence over history)
 **Spec:** `StateReference.stateCommitment` — *"State commitments form a chain where each commitment includes
 the previous one, enabling tamper detection."* A **state commitment** is `sha256(previousCommitment +
-txId + tokenId + owner + timestamp)`. Because each folds in the previous, a token's history is a **hash
-chain**: alter any past state and every later commitment diverges. This is the Phase-3 signature idea
+txId + tokenId + owner + claimsDigest + timestamp)`. Because each folds in the previous, a token's history is
+a **hash chain**: alter any past state and every later commitment diverges. The `claimsDigest` is in there
+because the spec's recipe lists `claims` among the inputs — so the **credential embedded in the token**
+(see [`05_tokens.md`](05_tokens.md) §5) is part of what the chain commits to: strip it, and the token can no
+longer reproduce its committed value. This is the Phase-3 signature idea
 (tamper-evidence of one message) applied to a whole *history*. **Our code:** `ledger.recordMint` sets the
 genesis commitment; `ledger.recordTransfer` chains the next one (`stateAfter.previousCommitment` literally
 points back). You can watch the token's `state.stateCommitment` change after a transfer.

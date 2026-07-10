@@ -47,6 +47,23 @@ export interface IssuerInfo {
   name: string;
 }
 
+/**
+ * A W3C verifiable credential in the shape the specs use for a `Claim`: `issuer` is a string DID,
+ * not an object. That's what lets the very same signed object live inside a credential AND inside a
+ * token's `claims[]` with one signature valid in both places.
+ */
+export interface VerifiableClaim {
+  id: string;
+  '@context': string | string[];
+  type: string | string[];
+  issuer: string;
+  issuanceDate: string;
+  validUntil?: string;
+  credentialSubject: Record<string, unknown> & { id: string };
+  proof?: { type: string; created: string; verificationMethod: string; proofPurpose: string; proofValue: string };
+  [k: string]: unknown;
+}
+
 // We treat the credential as opaque on the client except for a few fields we display.
 // The full shape is the vendored credential.schema.json; the server is authoritative.
 export interface CredentialToken {
@@ -58,14 +75,7 @@ export interface CredentialToken {
     verificationLevel?: string;
     [k: string]: unknown;
   };
-  claims: Array<{
-    issuer: { id: string; name?: string };
-    issuanceDate: string;
-    validUntil: string;
-    credentialSubject: Record<string, unknown>;
-    proof?: { type: string; verificationMethod: string };
-    [k: string]: unknown;
-  }>;
+  claims: VerifiableClaim[];
   state: { status: string; [k: string]: unknown };
   [k: string]: unknown;
 }
@@ -148,6 +158,7 @@ export interface TokenInstance {
     [k: string]: unknown;
   };
   data?: Record<string, unknown>;
+  claims?: VerifiableClaim[]; // the credential that authorized this token's creation, carried with it
   identities: { id: string; type: string }[];
   state: { status: string; supply?: { totalSupply?: string; circulatingSupply?: string }; [k: string]: unknown };
 }

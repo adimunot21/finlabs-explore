@@ -40,7 +40,7 @@ ownership, and history — so any ledger that understands the format can hold it
 |---|---|---|
 | `metadata` | immutable identity + behaviour: `tokenStandard`, `name`, `symbol`, `decimals`, `fungibility`, `flags` | what the thing *is* — never changes |
 | `data` | type-specific facts (a deed's address, an NFT's image URL) | domain payload, varies by class |
-| `claims` | signed statements about it — **verifiable credentials/attestations** | *trust attached to the asset* (Phase-4 objects!) |
+| `claims` | signed statements about it — **verifiable credentials/attestations** | *trust attached to the asset* — the Phase-4 credential lives here (see §5) |
 | `identities` | who relates to it — `issuer`, `owner`, `custodian`, `operator`… | the parties, as a list of DIDs |
 | `state` | runtime status — `active`/`frozen`/`burned`, `supply`, locks, `stateCommitment` | what *changes* over the token's life |
 
@@ -84,6 +84,41 @@ Notice it **reuses Phase 4 verbatim** — `verifyCredential` runs the same four 
 signature, not-revoked, not-expired). So revoking your credential (Phase 4) instantly makes minting fail
 (Phase 5): the two layers are wired together exactly as the paper intends. The refusal surfaces as HTTP
 `403 COMPLIANCE_CHECK_FAILED`, and the UI shows it in red as "Mint refused at creation."
+
+## 5. The token carries its own trust (`claims[]`) — the "trusted proof chain"
+**Paper:** §5.4.1 — *"The chaining together of tokens, their credentials and attestations, and metadata of
+every event results in the creation of proof chains that can be made **portable** so that subsequent actors
+have all the information to decide **without having to capture and verify all over again**."*
+
+A compliance check that returns a boolean and throws the credential away leaves the token dumb: whoever
+receives it must go ask the issuer whether the owner was ever KYC'd. So we don't throw it away. `mintToken`
+keeps the credential that satisfied the hook and embeds it **verbatim** into `token.claims[0]`. The token now
+proves its own compliance, offline.
+
+**Why the embedding works at all — a schema detail worth understanding.** A W3C VC may express `issuer` as a
+string DID *or* an object; `credential.schema.json` allows `oneOf[string(uri), object{id,name}]`. But
+`token.schema.json`'s `Claim.issuer` accepts **only a string**. By issuing our credentials with a **string**
+issuer, the *same signed object* is at once a valid credential and a valid token claim — **one signature,
+valid in both places**. Flatten an object-shaped issuer at embed time instead, and you change the canonical
+form the issuer signed, and the signature breaks.
+
+Same reason we embed it **byte-for-byte**: adding even a helpful `status: "verified"` field to the embedded
+copy would change the canonicalization and invalidate the proof. **Signed data is immutable data.**
+
+**And it's chained, not just attached.** `ledger.ts` folds `claimsDigest(claims)` into every
+`stateCommitment` — the spec's `StateReference` recipe explicitly lists `claims` among the inputs. Strip or
+swap the embedded credential and the token can't reproduce its committed value.
+
+**Verify it yourself:** in the app (step 6) the browser recovers the issuer's public key from the DID inside
+`proof.verificationMethod` and checks the signature — no issuer call, no trust in our server
+(`verifyEmbeddedCredential`). A cross-implementation test (`app/src/lib/embedded-credential.test.ts`) verifies
+a **server-signed** credential with the **browser's** independent canonicalization, so the two can't drift.
+
+> **Honest caveat.** This proves the issuer *did* attest it, unaltered. It cannot prove the credential hasn't
+> since been **revoked** — freshness still needs the issuer's status list. That's the nature of offline
+> verification, and the same lesson as Phase 4's: *a valid signature is necessary but not sufficient.*
+> Note also that the embedded credential exposes the holder's `fullName` to anyone holding the token; the
+> spec's `Claim.visibility` and real selective-disclosure schemes (BBS+, SD-JWT) are the answer, out of scope here.
 
 ---
 

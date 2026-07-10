@@ -34,7 +34,7 @@ test of whether that worked. Where we fell short, it says so plainly.
 | §5.1 | three traps (standardization/centralization/synchronization) | built to their specs; single process | 🟡 / ⚠ |
 | §5.3 | high-level architecture (8 boxes) | [`00_architecture_map.md`](00_architecture_map.md) | ✅ mapped |
 | §5.4.1 | **tokens**, UNITS five sections | `token.schema.json`-validated instance | ✅ |
-| §5.4.1 | **trusted proof chains** (tokens + credentials + attestations chained) | transaction proof chain only | 🟡 |
+| §5.4.1 | **trusted proof chains** (tokens + credentials + attestations chained) | credential embedded in `token.claims`, folded into `stateCommitment`, verified in-browser | ✅ |
 | §5.4.2 | token managers | token-class `identities` + policy | 🟡 |
 | §5.4.3 | **verifiable & portable credentials** | issue → verify → revoke, real Ed25519 | ✅ ⚠ |
 | §5.4.4 | ledger design (3 layers), immutability, finality | append-only ledger, state commitments | 🟡 ⚠ |
@@ -204,25 +204,48 @@ The eight boxes, and which phase touched each — the full table is in
 | 7 Digital infrastructure (identity, signatures, registries) | 3–4 | ✅ ⚠ |
 | 8 Laws, regulations, governance | 5 | ✅ the compliance hook is this band pushed into code |
 
-## §5.4.1 — Tokens ✅, and trusted proof chains 🟡
+## §5.4.1 — Tokens ✅, and trusted proof chains ✅
 
 **UNITS' five sections** — `metadata`, `data`, `claims`, `identities`, `state` — are real in our tokens and
 validated against `specs-vendor/schemas/token/token.schema.json` (draft-07) on every mint. ✅
 
-But the paper's **"Trusted Proof Chains"** is more than what we built. Verbatim (§5.4.1):
+The paper's **"Trusted Proof Chains"**, verbatim (§5.4.1):
 
 > "The chaining together of **tokens, their credentials and attestations, and metadata of every event** results
 > in the creation of proof chains that can be made **portable** so that subsequent actors have all the
 > information to decide **without having to capture and verify all over again**."
 
-**What we built:** a proof chain over **transaction metadata** — per-token `stateCommitment` hash chain plus a
-Merkle inclusion proof per transaction. **What we did not build:** the credential/attestation half. Our token's
-`claims[]` is **empty** — the KYC credential *gated* the mint but was never **embedded into the token** as a
-claim. So our token is not yet the portable, self-sufficient trust bundle the paper describes; a recipient
-would still have to go ask the issuer. 🟡
+**What we built.** All three parts of that sentence — chained, portable, and checkable without re-verifying:
 
-**This is the most interesting gap in the project**, and the most obvious next step: attach the verified
-credential to `token.claims` at mint time, and the token starts carrying its own trust with it.
+1. **The credential is embedded in the token.** When the compliance hook accepts a credential, `tokens.ts`
+   keeps the credential itself — not a yes/no — and writes it **verbatim** into `token.claims[0]`.
+2. **It's chained.** `ledger.ts` folds a `claimsDigest(claims)` into every `stateCommitment`, exactly as the
+   spec's `StateReference` recipe prescribes (`… + identities + claims + state + …`). Strip or swap the
+   embedded credential and the token can no longer reproduce its committed value.
+3. **It's portable, and verified without re-verifying from scratch.** The browser recovers the issuer's public
+   key from the DID inside `proof.verificationMethod` and checks the signature over the credential —
+   **no call to the issuer, no trust in the server** (`verifyEmbeddedCredential`, `app/src/lib/crypto.ts`).
+   You see it in the app at step 6: *"the token carries the very credential that authorized it."*
+
+**The design detail that made it work** is worth internalizing, because it's why the specs are shaped the way
+they are. `credential.schema.json` declares a VC's `issuer` as `oneOf[string(uri), object{id,name}]`, while
+`token.schema.json`'s `Claim.issuer` accepts **only a string**. Choosing the string form means the *same signed
+object* is simultaneously a valid credential and a valid token claim — **one signature, valid in both places**,
+no reshaping and no re-signing. Had we kept `issuer: {id, name}`, embedding would have forced us to flatten the
+object, which changes the canonical form the issuer signed and **breaks the signature**. For the same reason we
+embed the credential *byte-for-byte*: adding even a helpful `status: "verified"` field to the embedded copy
+would invalidate it. Signed data is immutable data.
+
+**The honest caveat (unchanged from Phase 4).** The embedded credential proves the issuer **did attest this,
+unaltered**. It cannot prove the credential hasn't since been **revoked** — freshness still requires the
+issuer's status list. That is not a shortcoming of our implementation; it is the nature of offline
+verification, and it's the same lesson as *"a valid signature is necessary but not sufficient."* Also, we carry
+**one** credential; the paper's "attestations" (plural, from multiple third parties) generalize this but we
+don't demonstrate several.
+
+A cross-implementation test guards the whole thing: `app/src/lib/embedded-credential.test.ts` verifies a
+credential **signed by the server** using the **browser's** independent canonicalization. If the two ever drift
+by one byte, the test fails rather than the UI quietly showing a red ✗ on a valid credential.
 
 ## §5.4.2 — Token managers 🟡
 
@@ -329,8 +352,8 @@ proof.*
 So this document can't be mistaken for a claim of completeness:
 
 1. **A second ledger and real UILP messaging** — the biggest gap (§5.4.6). No cross-ledger settlement.
-2. **Credentials embedded in `token.claims`** — so our proof chain is transaction-only, not the portable
-   token+credential+attestation bundle of §5.4.1.
+2. **Multiple attestations per token, and revocation-aware offline checks** — we embed *one* credential, and
+   an offline verifier can confirm the issuer signed it but not that it's still unrevoked (§5.4.1).
 3. **Contracts / programmability layer** (§5.4.5, §5.4.4 layer 3).
 4. **Consensus and Conditions** primitives of the descriptor layer (§5.4.4).
 5. **Asset types A and D**; joint / fractional ownership; jurisdiction restrictions (§4, §4.1, §4.3).
@@ -338,6 +361,11 @@ So this document can't be mistaken for a claim of completeness:
 7. **Real finality, real immutability, decentralization** — one in-memory process (§5.1 trap #2, §5.2).
 8. **Fraud/anomaly detection** (§5.5 → optional Phase 9).
 9. **Token-manager ACL enforcement** — we check compliance, not who is allowed to mint (§5.4.2).
+10. **Privacy of embedded claims** — the credential we embed carries the holder's `fullName` in
+    `credentialSubject`, visible to anyone holding the token. The spec's `Claim.visibility`
+    (`public`/`private`/`protected`) exists for exactly this; we don't use it, and we can't add it to the
+    embedded copy without breaking the issuer's signature. Selective disclosure (BBS+, SD-JWT) is the real
+    answer and is out of scope.
 
 ## Every stand-in, in one place
 
